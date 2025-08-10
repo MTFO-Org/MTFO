@@ -17,7 +17,7 @@ namespace MTFO
             PluginState.PluginFiber = new GameFiber(PluginLogic);
             PluginState.PluginFiber.Start();
             // Subscribes our drawing method to the game's rendering event
-            Game.FrameRender += DebugDisplay.OnFrameRender;
+            if (Config.ShowDebugLines) Game.FrameRender += DebugDisplay.OnFrameRender;
             Game.DisplayNotification("MTFO by Guess1m/Rohan loaded successfully.");
         }
 

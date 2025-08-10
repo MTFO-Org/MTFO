@@ -34,6 +34,14 @@ namespace MTFO
                 Debug.DrawLine(entry.Key.Position, entry.Value.TargetPosition, lineColor);
             }
 
+            // Draw an orange line backwards from braking oncoming vehicles.
+            foreach (var vehicle in PluginState.OncomingBrakingVehicles.Keys.Where(v => v.Exists()))
+            {
+                var start = vehicle.Position;
+                var end = start - vehicle.ForwardVector * 3f; // 3m line pointing backwards
+                Debug.DrawLine(start, end, Color.DarkRed);
+            }
+
             // Draw lines for intersection-managed vehicles.
             if (PluginState.ActiveIntersectionCenter.HasValue)
             {

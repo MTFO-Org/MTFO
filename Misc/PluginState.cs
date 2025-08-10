@@ -13,6 +13,9 @@ namespace MTFO.Misc
         // Tracked vehicles during a yield
         public static readonly Dictionary<Vehicle, YieldTask> TaskedVehicles = new Dictionary<Vehicle, YieldTask>();
 
+        // NEW: Tracks oncoming vehicles that have been told to brake. Stores the time the task was given.
+        public static readonly Dictionary<Vehicle, uint> OncomingBrakingVehicles = new Dictionary<Vehicle, uint>();
+
         // Tracks vehicles stopped at an intersection for cross-traffic
         public static readonly HashSet<Vehicle> IntersectionTaskedVehicles = new HashSet<Vehicle>();
 

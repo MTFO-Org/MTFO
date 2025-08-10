@@ -53,23 +53,24 @@ namespace MTFO.Handlers
 
         private static bool CheckIfPastIntersection(Vehicle emergencyVehicle)
         {
-            var vectorToIntersection = PluginState.ActiveIntersectionCenter.Value - emergencyVehicle.Position;
-            var dotPlayerToCenter = Vector3.Dot(emergencyVehicle.ForwardVector, vectorToIntersection);
-
-            // If we are moving away from the intersection or are too far past it...
-            if (dotPlayerToCenter < -10f || vectorToIntersection.Length() > Config.IntersectionSearchMaxDistance + 20f)
+            if (PluginState.ActiveIntersectionCenter != null)
             {
-                // ...clear all tasks and start a cooldown to prevent re-detecting the same intersection.
-                Entry.ClearAllTrackedVehicles();
-                PluginState.IntersectionClearTime = Game.GameTime; // Start the cooldown timer
-                return true;
+                var vectorToIntersection = PluginState.ActiveIntersectionCenter.Value - emergencyVehicle.Position;
+                var dotPlayerToCenter = Vector3.Dot(emergencyVehicle.ForwardVector, vectorToIntersection);
+
+                // If we are moving away from the intersection or are too far past it...
+                if (!(dotPlayerToCenter < -10f) && !(vectorToIntersection.Length() > Config.IntersectionSearchMaxDistance + 20f)) return false;
             }
 
-            return false;
+            // ...clear all tasks and start a cooldown to prevent re-detecting the same intersection.
+            Entry.ClearAllTrackedVehicles();
+            PluginState.IntersectionClearTime = Game.GameTime; // Start the cooldown timer
+            return true;
         }
 
         private static void ManageExistingIntersectionTasks()
         {
+            if (PluginState.ActiveIntersectionCenter == null) return;
             var center = PluginState.ActiveIntersectionCenter.Value;
             // Remove cross-traffic vehicles that are too far away.
             PluginState.IntersectionTaskedVehicles.RemoveWhere(v =>
@@ -125,39 +126,34 @@ namespace MTFO.Handlers
             }
 
             // If a valid object was found, set it as the active intersection.
-            if (foundObject != null)
+            if (foundObject == null) return;
+            PluginState.IsStopSignIntersection = GameModels.StopSignModels.Contains(foundObject.Model.Hash);
+            if (PluginState.IsStopSignIntersection)
             {
-                PluginState.IsStopSignIntersection = GameModels.StopSignModels.Contains(foundObject.Model.Hash);
-                if (PluginState.IsStopSignIntersection)
-                {
-                    var rawCenter = foundObject.Position + foundObject.ForwardVector * 12f;
-                    var groundZ = World.GetGroundZ(rawCenter, false, false);
-                    PluginState.ActiveIntersectionCenter = groundZ.HasValue ? new Vector3(rawCenter.X, rawCenter.Y, groundZ.Value) : rawCenter;
-                }
-                else
-                {
-                    PluginState.ActiveIntersectionCenter = foundObject.Position;
-                    if (Config.EnableOpticom) SetTrafficLightGreen(foundObject);
-                }
+                var rawCenter = foundObject.Position + foundObject.ForwardVector * 12f;
+                var groundZ = World.GetGroundZ(rawCenter, false, false);
+                PluginState.ActiveIntersectionCenter = groundZ.HasValue ? new Vector3(rawCenter.X, rawCenter.Y, groundZ.Value) : rawCenter;
+            }
+            else
+            {
+                PluginState.ActiveIntersectionCenter = foundObject.Position;
+                if (Config.EnableOpticom) SetTrafficLightGreen(foundObject);
             }
         }
 
         private static void ProcessNearbyVehicles(Vehicle emergencyVehicle)
         {
+            if (PluginState.ActiveIntersectionCenter == null) return;
             var intersectionCenter = PluginState.ActiveIntersectionCenter.Value;
-            // Get all vehicles near the active intersection.
             var nearbyEntities = World.GetEntities(intersectionCenter, 60f, GetEntitiesFlags.ConsiderAllVehicles | GetEntitiesFlags.ExcludePlayerVehicle);
 
-            // Process each vehicle near the intersection.
             foreach (var vehicle in nearbyEntities.OfType<Vehicle>())
             {
-                // Basic filtering for invalid or already-tasked vehicles.
                 if (!vehicle.Exists() || !vehicle.IsAlive || !vehicle.Driver.Exists() || vehicle.HasSiren) continue;
                 if (PluginState.TaskedVehicles.ContainsKey(vehicle) || PluginState.IntersectionTaskedVehicles.Contains(vehicle) || PluginState.IntersectionCreepTaskedVehicles.ContainsKey(vehicle)) continue;
 
                 var headingDot = Vector3.Dot(emergencyVehicle.ForwardVector, vehicle.ForwardVector);
 
-                // Check for "creep" candidates: vehicles stopped in front of us, facing the same direction.
                 if (headingDot > 0.8f && vehicle.Speed < Config.MinYieldSpeedMph)
                 {
                     var vectorToVehicle = vehicle.Position - emergencyVehicle.Position;
@@ -166,16 +162,45 @@ namespace MTFO.Handlers
                     {
                         var driver = vehicle.Driver;
                         var lateralOffset = Vector3.Dot(vectorToVehicle, emergencyVehicle.RightVector);
-                        var sidePushVector = lateralOffset > 0 ? emergencyVehicle.RightVector : -emergencyVehicle.RightVector;
-                        var targetPos = vehicle.Position + vehicle.ForwardVector * Config.IntersectionCreepForwardDistance + sidePushVector * Config.IntersectionCreepSideDistance;
 
-                        // Make sure the target position is on the ground and the path is clear.
+                        var checkStartPos = vehicle.Position + new Vector3(0, 0, 0.5f);
+                        var sideCheckDistance = Config.IntersectionCreepSideDistance + vehicle.Width / 2f;
+                        var traceFlags = TraceFlags.IntersectVehicles | TraceFlags.IntersectObjects;
+
+                        var rightHit = World.TraceLine(checkStartPos, checkStartPos + vehicle.RightVector * sideCheckDistance, traceFlags, vehicle);
+                        var leftHit = World.TraceLine(checkStartPos, checkStartPos - vehicle.RightVector * sideCheckDistance, traceFlags, vehicle);
+
+                        var canGoRight = !rightHit.Hit;
+                        var canGoLeft = !leftHit.Hit;
+
+                        Vector3? sidePushDirection = null;
+
+                        if (Math.Abs(lateralOffset) < 1.0f)
+                        {
+                            if (canGoRight) sidePushDirection = emergencyVehicle.RightVector;
+                            else if (canGoLeft) sidePushDirection = -emergencyVehicle.RightVector;
+                        }
+                        else if (lateralOffset > 0)
+                        {
+                            if (canGoRight) sidePushDirection = emergencyVehicle.RightVector;
+                        }
+                        else
+                        {
+                            if (canGoLeft) sidePushDirection = -emergencyVehicle.RightVector;
+                        }
+
+                        if (!sidePushDirection.HasValue) continue;
+
+                        var targetPos = vehicle.Position + vehicle.ForwardVector * Config.IntersectionCreepForwardDistance + sidePushDirection.Value * Config.IntersectionCreepSideDistance;
+
                         var groundZ = World.GetGroundZ(targetPos, false, false);
-                        var finalTargetPos = groundZ.HasValue ? new Vector3(targetPos.X, targetPos.Y, groundZ.Value) : targetPos;
+                        if (!groundZ.HasValue) continue;
+
+                        var finalTargetPos = new Vector3(targetPos.X, targetPos.Y, groundZ.Value);
+
                         var pathTrace = World.TraceLine(vehicle.Position, finalTargetPos, TraceFlags.IntersectWorld, vehicle);
                         if (pathTrace.Hit) continue;
 
-                        // Assign the creep task.
                         driver.Tasks.Clear();
                         driver.Tasks.DriveToPosition(finalTargetPos, Config.IntersectionCreepDriveSpeed, VehicleDrivingFlags.Emergency | VehicleDrivingFlags.StopAtDestination);
 
@@ -189,21 +214,17 @@ namespace MTFO.Handlers
                             PluginState.TaskedVehicleBlips.Add(vehicle, blip);
                         }
 
-                        // Skip to the next vehicle since this one has been tasked.
                         continue;
                     }
                 }
 
-                // Check for "stop" candidates: cross-traffic that needs to be stopped.
                 var isPotentialTarget = false;
                 if (PluginState.IsStopSignIntersection)
                 {
-                    // For stop signs, stop any vehicle not going our direction.
                     if (headingDot < 0.7f) isPotentialTarget = true;
                 }
                 else
                 {
-                    // For traffic lights, only stop vehicles that are nearly perpendicular.
                     if (Math.Abs(headingDot) < Config.CrossTrafficHeadingDotThreshold) isPotentialTarget = true;
                 }
 
@@ -216,7 +237,6 @@ namespace MTFO.Handlers
                 }
                 else
                 {
-                    // For traffic lights, also ensure the vehicle is heading towards the intersection.
                     var vectorToIntersection = intersectionCenter - vehicle.Position;
                     var dotVehToCenter = Vector3.Dot(vehicle.ForwardVector, vectorToIntersection);
                     if (dotVehToCenter > 0 && distanceToCenter < 35f) shouldStop = true;
@@ -224,7 +244,6 @@ namespace MTFO.Handlers
 
                 if (!shouldStop) continue;
 
-                // Assign the stop task.
                 var vehicleDriver = vehicle.Driver;
                 vehicleDriver.Tasks.Clear();
                 vehicleDriver.Tasks.PerformDrivingManeuver(vehicle, VehicleManeuver.GoForwardStraightBraking, 2000);

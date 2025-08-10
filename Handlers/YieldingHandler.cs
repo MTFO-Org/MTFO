@@ -24,6 +24,34 @@ namespace MTFO.Handlers
         private static void ManageExistingYieldingVehicles(Vehicle emergencyVehicle)
         {
             var vehiclesToUntask = new List<Vehicle>();
+            var brakingVehiclesToUntask = new List<Vehicle>();
+
+            // Manage oncoming vehicles that were told to brake.
+            foreach (var entry in PluginState.OncomingBrakingVehicles)
+            {
+                var vehicle = entry.Key;
+                var timeTasked = entry.Value;
+
+                // Untask if vehicle is gone, too far, or the brake task is finished.
+                if (!vehicle.Exists() || vehicle.Position.DistanceTo(emergencyVehicle.Position) > Config.DetectionRange + 30f || Game.GameTime - timeTasked > Config.OncomingBrakeDurationMs) brakingVehiclesToUntask.Add(vehicle);
+            }
+
+            // Clean up the finished braking vehicles.
+            foreach (var vehicle in brakingVehiclesToUntask)
+            {
+                if (vehicle.Exists() && vehicle.Driver.Exists()) vehicle.Driver.Tasks.Clear();
+
+                PluginState.OncomingBrakingVehicles.Remove(vehicle);
+
+                // Remove the debug blip if it exists.
+                if (PluginState.TaskedVehicleBlips.TryGetValue(vehicle, out var blip))
+                {
+                    if (blip.Exists()) blip.Delete();
+                    PluginState.TaskedVehicleBlips.Remove(vehicle);
+                }
+            }
+
+            // Original logic for managing vehicles pulling over.
             foreach (var entry in PluginState.TaskedVehicles)
             {
                 var vehicle = entry.Key;
@@ -76,100 +104,110 @@ namespace MTFO.Handlers
             {
                 if (!(entity is Vehicle vehicle)) continue;
 
-                // This check prevents vehicles that already have ANY kind of task from getting a new one.
-                if (PluginState.TaskedVehicles.ContainsKey(vehicle) || PluginState.IntersectionTaskedVehicles.Contains(vehicle) || PluginState.IntersectionCreepTaskedVehicles.ContainsKey(vehicle)) continue;
+                if (PluginState.TaskedVehicles.ContainsKey(vehicle) || PluginState.IntersectionTaskedVehicles.Contains(vehicle) || PluginState.IntersectionCreepTaskedVehicles.ContainsKey(vehicle) || PluginState.OncomingBrakingVehicles.ContainsKey(vehicle))
+                    continue;
 
-                // Filter out irrelevant vehicles.
-                if (!vehicle.Exists() || !vehicle.IsAlive || vehicle.HasSiren || vehicle.Speed < Config.MinYieldSpeedMph)
+                if (!vehicle.Exists() || !vehicle.IsAlive || vehicle.HasSiren)
                     continue;
 
                 var driver = vehicle.Driver;
                 if (!driver.Exists() || !driver.IsAlive) continue;
 
-                // Check vertical distance to ignore vehicles on overpasses/underpasses
                 var verticalDistance = Math.Abs(vehicle.Position.Z - (emergencyVehicle.Position.Z + Config.DetectionHeightOffset));
                 if (verticalDistance > Config.DetectionAreaHeight / 2.0f) continue;
 
-                // Check if the vehicle is in front of us and facing the same general direction.
                 var headingDot = Vector3.Dot(emergencyVehicle.ForwardVector, vehicle.ForwardVector);
-                if (headingDot < 0.5f) continue;
-
                 var vectorToTarget = vehicle.Position - emergencyVehicle.Position;
                 var forwardDistance = Vector3.Dot(vectorToTarget, emergencyVehicle.ForwardVector);
+
                 if (forwardDistance < 0f || forwardDistance > Config.DetectionRange) continue;
 
-                // Check if the vehicle is within the trapezoidal detection area.
-                var t = forwardDistance / Config.DetectionRange;
-                var maxAllowedWidth = Config.DetectionStartWidth + (Config.DetectionEndWidth - Config.DetectionStartWidth) * t;
-                var lateralOffset = Vector3.Dot(vectorToTarget, emergencyVehicle.RightVector);
-                if (Math.Abs(lateralOffset) > maxAllowedWidth) continue;
-
-                // Use trace lines to check for obstacles to the left and right of the vehicle.
-                var checkStart = vehicle.Position + vehicle.ForwardVector * (vehicle.Length / 2f) + new Vector3(0, 0, 0.5f);
-                const float sideCheckDistance = 3.5f;
-                var rightHit = World.TraceLine(checkStart, checkStart + vehicle.RightVector * sideCheckDistance, TraceFlags.IntersectVehicles | TraceFlags.IntersectObjects, vehicle);
-                var leftHit = World.TraceLine(checkStart, checkStart - vehicle.RightVector * sideCheckDistance, TraceFlags.IntersectVehicles | TraceFlags.IntersectObjects, vehicle);
-
-                var canGoRight = !rightHit.Hit;
-                var canGoLeft = !leftHit.Hit;
-                Vector3 rawTargetPos;
-                YieldTaskType taskType;
-                // Prefer moving right unless the vehicle is significantly to our left.
-                var preferRight = lateralOffset > -1.5f;
-
-                if (preferRight)
+                if (headingDot > 0.2f)
                 {
-                    if (canGoRight)
+                    if (vehicle.Speed < Config.MinYieldSpeedMph) continue;
+
+                    var t = forwardDistance / Config.DetectionRange;
+                    var maxAllowedWidth = Config.DetectionStartWidth + (Config.DetectionEndWidth - Config.DetectionStartWidth) * t;
+                    var lateralOffset = Vector3.Dot(vectorToTarget, emergencyVehicle.RightVector);
+                    if (Math.Abs(lateralOffset) > maxAllowedWidth) continue;
+
+                    var checkStart = vehicle.Position + vehicle.ForwardVector * (vehicle.Length / 2f) + new Vector3(0, 0, 0.5f);
+                    const float sideCheckDistance = 3.5f;
+                    var rightHit = World.TraceLine(checkStart, checkStart + vehicle.RightVector * sideCheckDistance, TraceFlags.IntersectVehicles | TraceFlags.IntersectObjects, vehicle);
+                    var leftHit = World.TraceLine(checkStart, checkStart - vehicle.RightVector * sideCheckDistance, TraceFlags.IntersectVehicles | TraceFlags.IntersectObjects, vehicle);
+
+                    var canGoRight = !rightHit.Hit;
+                    var canGoLeft = !leftHit.Hit;
+                    Vector3 rawTargetPos;
+                    YieldTaskType taskType;
+
+                    var preferRight = lateralOffset > -1.5f;
+
+                    if (preferRight)
                     {
-                        taskType = YieldTaskType.MoveRight;
-                        rawTargetPos = vehicle.Position + vehicle.RightVector * Config.SideMoveDistance + vehicle.ForwardVector * Config.ForwardMoveDistance;
-                    }
-                    else if (canGoLeft)
-                    {
-                        taskType = YieldTaskType.MoveLeft;
-                        rawTargetPos = vehicle.Position - vehicle.RightVector * Config.SideMoveDistance + vehicle.ForwardVector * Config.ForwardMoveDistance;
+                        if (canGoRight)
+                        {
+                            taskType = YieldTaskType.MoveRight;
+                            rawTargetPos = vehicle.Position + vehicle.RightVector * Config.SideMoveDistance + vehicle.ForwardVector * Config.ForwardMoveDistance;
+                        }
+                        else if (canGoLeft)
+                        {
+                            taskType = YieldTaskType.MoveLeft;
+                            rawTargetPos = vehicle.Position - vehicle.RightVector * Config.SideMoveDistance + vehicle.ForwardVector * Config.ForwardMoveDistance;
+                        }
+                        else
+                        {
+                            taskType = YieldTaskType.ForceMoveRight;
+                            rawTargetPos = vehicle.Position + vehicle.RightVector * Config.ForceSideMoveDistance + vehicle.ForwardVector * Config.ForwardMoveDistance;
+                        }
                     }
                     else
                     {
-                        taskType = YieldTaskType.ForceMoveRight;
-                        rawTargetPos = vehicle.Position + vehicle.RightVector * Config.ForceSideMoveDistance + vehicle.ForwardVector * Config.ForwardMoveDistance;
+                        if (canGoLeft)
+                        {
+                            taskType = YieldTaskType.MoveLeft;
+                            rawTargetPos = vehicle.Position - vehicle.RightVector * Config.SideMoveDistance + vehicle.ForwardVector * Config.ForwardMoveDistance;
+                        }
+                        else if (canGoRight)
+                        {
+                            taskType = YieldTaskType.MoveRight;
+                            rawTargetPos = vehicle.Position + vehicle.RightVector * Config.SideMoveDistance + vehicle.ForwardVector * Config.ForwardMoveDistance;
+                        }
+                        else
+                        {
+                            taskType = YieldTaskType.ForceMoveLeft;
+                            rawTargetPos = vehicle.Position - vehicle.RightVector * Config.ForceSideMoveDistance + vehicle.ForwardVector * Config.ForwardMoveDistance;
+                        }
                     }
+
+                    var groundZ = World.GetGroundZ(rawTargetPos, false, false);
+                    var finalTargetPos = groundZ.HasValue ? new Vector3(rawTargetPos.X, rawTargetPos.Y, groundZ.Value) : rawTargetPos;
+
+                    var pathTrace = World.TraceLine(vehicle.Position, finalTargetPos, TraceFlags.IntersectWorld, vehicle);
+                    if (pathTrace.Hit) continue;
+
+                    driver.Tasks.Clear();
+                    driver.Tasks.DriveToPosition(finalTargetPos, Config.DriveSpeed, VehicleDrivingFlags.Normal);
+                    PluginState.TaskedVehicles.Add(vehicle, new YieldTask { TargetPosition = finalTargetPos, TaskType = taskType });
+
+                    if (PluginState.TaskedVehicleBlips.ContainsKey(vehicle)) continue;
+                    var blip = vehicle.AttachBlip();
+                    blip.Color = Color.Green;
+                    PluginState.TaskedVehicleBlips.Add(vehicle, blip);
                 }
-                else
+                else if (headingDot < Config.OncomingBrakeHeadingDot)
                 {
-                    if (canGoLeft)
-                    {
-                        taskType = YieldTaskType.MoveLeft;
-                        rawTargetPos = vehicle.Position - vehicle.RightVector * Config.SideMoveDistance + vehicle.ForwardVector * Config.ForwardMoveDistance;
-                    }
-                    else if (canGoRight)
-                    {
-                        taskType = YieldTaskType.MoveRight;
-                        rawTargetPos = vehicle.Position + vehicle.RightVector * Config.SideMoveDistance + vehicle.ForwardVector * Config.ForwardMoveDistance;
-                    }
-                    else
-                    {
-                        taskType = YieldTaskType.ForceMoveLeft;
-                        rawTargetPos = vehicle.Position - vehicle.RightVector * Config.ForceSideMoveDistance + vehicle.ForwardVector * Config.ForwardMoveDistance;
-                    }
+                    var lateralOffset = Vector3.Dot(vectorToTarget, emergencyVehicle.RightVector);
+
+                    if (!(lateralOffset < Config.OncomingBrakeMaxLateral) || !(lateralOffset > Config.OncomingBrakeMinLateral)) continue;
+                    driver.Tasks.PerformDrivingManeuver(vehicle, VehicleManeuver.Wait, Config.OncomingBrakeDurationMs);
+                    PluginState.OncomingBrakingVehicles.Add(vehicle, Game.GameTime);
+
+                    if (!Config.ShowDebugLines || PluginState.TaskedVehicleBlips.ContainsKey(vehicle)) continue;
+                    var blip = vehicle.AttachBlip();
+                    blip.Color = Color.DarkRed;
+                    PluginState.TaskedVehicleBlips.Add(vehicle, blip);
                 }
-
-                // Ensure the target position is on the ground and the path is clear.
-                var groundZ = World.GetGroundZ(rawTargetPos, false, false);
-                var finalTargetPos = groundZ.HasValue ? new Vector3(rawTargetPos.X, rawTargetPos.Y, groundZ.Value) : rawTargetPos;
-
-                var pathTrace = World.TraceLine(vehicle.Position, finalTargetPos, TraceFlags.IntersectWorld, vehicle);
-                if (pathTrace.Hit) continue;
-
-                // Assign the yield task.
-                driver.Tasks.Clear();
-                driver.Tasks.DriveToPosition(finalTargetPos, Config.DriveSpeed, VehicleDrivingFlags.Normal);
-                PluginState.TaskedVehicles.Add(vehicle, new YieldTask { TargetPosition = finalTargetPos, TaskType = taskType });
-
-                if (PluginState.TaskedVehicleBlips.ContainsKey(vehicle)) continue;
-                var blip = vehicle.AttachBlip();
-                blip.Color = Color.Green;
-                PluginState.TaskedVehicleBlips.Add(vehicle, blip);
             }
         }
     }
