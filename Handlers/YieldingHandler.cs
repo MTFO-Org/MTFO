@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
+using LSPD_First_Response.Mod.API;
 using MTFO.Misc;
 using Rage;
 
@@ -127,7 +128,7 @@ namespace MTFO.Handlers
                 if (PluginState.TaskedVehicles.ContainsKey(vehicle) || PluginState.IntersectionTaskedVehicles.Contains(vehicle) || PluginState.IntersectionCreepTaskedVehicles.ContainsKey(vehicle) || PluginState.OncomingBrakingVehicles.ContainsKey(vehicle))
                     continue;
 
-                if (!vehicle.Exists() || !vehicle.IsAlive || vehicle.HasSiren)
+                if (!vehicle.Exists() || vehicle.IsPoliceVehicle || !vehicle.IsAlive || Functions.IsPlayerPerformingPullover() || vehicle.Model.IsEmergencyVehicle || Utils.IsDriverInPursuit(vehicle.Driver))
                     continue;
 
                 var driver = vehicle.Driver;
@@ -144,10 +145,8 @@ namespace MTFO.Handlers
 
                 var lateralOffset = Vector3.Dot(vectorToTarget, emergencyVehicle.RightVector);
 
-                // --- Handle Oncoming Vehicles First ---
-                if (headingDot < Config.OncomingBrakeHeadingDot)
+                if (Config.EnableOncomingBraking && headingDot < Config.OncomingBrakeHeadingDot)
                 {
-                    // Check if the vehicle is within the specific lateral zone for oncoming traffic.
                     if (!(lateralOffset < Config.OncomingBrakeMaxLateral) || !(lateralOffset > Config.OncomingBrakeMinLateral)) continue;
 
                     driver.Tasks.PerformDrivingManeuver(vehicle, VehicleManeuver.Wait, Config.OncomingBrakeDurationMs);
@@ -160,19 +159,14 @@ namespace MTFO.Handlers
                         PluginState.TaskedVehicleBlips.Add(vehicle, blip);
                     }
 
-                    // This vehicle has been handled, so we can skip to the next one.
                     continue;
                 }
 
-                // --- Handle Same-Direction Vehicles ---
-
-                // For all other vehicles, check if they are inside the primary trapezoidal detection area.
                 var t = forwardDistance / Config.DetectionRange;
                 var maxAllowedWidth = Config.DetectionStartWidth + (Config.DetectionEndWidth - Config.DetectionStartWidth) * t;
                 if (Math.Abs(lateralOffset) > maxAllowedWidth) continue;
 
-                // If inside the trapezoid, determine if they should creep or yield.
-                if (headingDot > 0.8f && vehicle.Speed < Config.MinYieldSpeedMph)
+                if (Config.EnableIntersectionCreep && headingDot > 0.8f && vehicle.Speed < Config.MinYieldSpeedMph)
                 {
                     var checkStartPos = vehicle.Position + new Vector3(0, 0, 0.5f);
                     var sideCheckDistance = Config.IntersectionCreepSideDistance + vehicle.Width / 2f;
@@ -237,14 +231,14 @@ namespace MTFO.Handlers
                     var creepTask = new CreepTask { TargetPosition = finalTargetPos, GameTimeStarted = Game.GameTime };
                     PluginState.IntersectionCreepTaskedVehicles.Add(vehicle, creepTask);
 
-                    if (!PluginState.TaskedVehicleBlips.ContainsKey(vehicle))
+                    if (Config.ShowDebugLines && !PluginState.TaskedVehicleBlips.ContainsKey(vehicle))
                     {
                         var blip = vehicle.AttachBlip();
                         blip.Color = Color.Fuchsia;
                         PluginState.TaskedVehicleBlips.Add(vehicle, blip);
                     }
                 }
-                else if (headingDot > 0.2f)
+                else if (Config.EnableSameSideYield && headingDot > 0.2f)
                 {
                     var checkStart = vehicle.Position + vehicle.ForwardVector * (vehicle.Length / 2f) + new Vector3(0, 0, 0.5f);
                     const float sideCheckDistance = 3.5f;
@@ -305,10 +299,12 @@ namespace MTFO.Handlers
                     driver.Tasks.DriveToPosition(finalTargetPos, Config.DriveSpeed, VehicleDrivingFlags.Normal);
                     PluginState.TaskedVehicles.Add(vehicle, new YieldTask { TargetPosition = finalTargetPos, TaskType = taskType, GameTimeStarted = Game.GameTime });
 
-                    if (PluginState.TaskedVehicleBlips.ContainsKey(vehicle)) continue;
-                    var blip = vehicle.AttachBlip();
-                    blip.Color = Color.Green;
-                    PluginState.TaskedVehicleBlips.Add(vehicle, blip);
+                    if (Config.ShowDebugLines && !PluginState.TaskedVehicleBlips.ContainsKey(vehicle))
+                    {
+                        var blip = vehicle.AttachBlip();
+                        blip.Color = Color.Green;
+                        PluginState.TaskedVehicleBlips.Add(vehicle, blip);
+                    }
                 }
             }
         }

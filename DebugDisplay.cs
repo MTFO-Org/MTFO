@@ -1,5 +1,6 @@
 ﻿using System.Drawing;
 using System.Linq;
+using LSPD_First_Response.Mod.API;
 using MTFO.Misc;
 using Rage;
 using Debug = Rage.Debug;
@@ -13,6 +14,7 @@ namespace MTFO
             var playerVehicle = Game.LocalPlayer.Character.CurrentVehicle;
             if (!Config.ShowDebugLines) return;
             if (!playerVehicle.Exists()) return;
+            if (Functions.IsPlayerPerformingPullover()) return;
 
             foreach (var entry in PluginState.TaskedVehicles.Where(entry => entry.Key.Exists()))
             {
@@ -44,10 +46,7 @@ namespace MTFO
             {
                 var center = PluginState.ActiveIntersectionCenter.Value;
 
-                foreach (var vehicle in PluginState.IntersectionTaskedVehicles.Where(v => v.Exists()))
-                {
-                    Debug.DrawLine(vehicle.Position, center, Color.Blue);
-                }
+                foreach (var vehicle in PluginState.IntersectionTaskedVehicles.Where(v => v.Exists())) Debug.DrawLine(vehicle.Position, center, Color.Blue);
             }
 
             if (!PluginState.IsSilentModeActive) return;

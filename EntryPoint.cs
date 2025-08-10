@@ -9,30 +9,32 @@ namespace MTFO
 {
     public class EntryPoint : Plugin
     {
-         public override void Initialize()
+        public override void Initialize()
         {
             Functions.OnOnDutyStateChanged += LSPDFRFunctions_OnOnDutyStateChanged;
         }
 
         private void LSPDFRFunctions_OnOnDutyStateChanged(bool onduty)
         {
-            if (onduty)
-            {
-                Main();
-            }
+            if (!onduty) return;
+            Config.Initialize();
+            Main();
         }
 
         public override void Finally()
         {
             Game.FrameRender -= DebugDisplay.OnFrameRender;
             ClearAllTrackedVehicles();
+
+            if (PluginState.PluginFiber.IsAlive) PluginState.PluginFiber.Abort();
         }
-        public static void Main()
+
+        private static void Main()
         {
             PluginState.PluginFiber = new GameFiber(PluginLogic);
             PluginState.PluginFiber.Start();
             if (Config.ShowDebugLines) Game.FrameRender += DebugDisplay.OnFrameRender;
-            Game.DisplayNotification("MTFO by Guess1m/Rohan loaded successfully.");
+            Game.DisplayNotification("~g~MTFO ~w~by ~y~Guess1m/Rohan ~w~loaded successfully.");
         }
 
         private static void PluginLogic()

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Drawing;
 using System.Linq;
+using LSPD_First_Response.Mod.API;
 using MTFO.Misc;
 using Rage;
 using Rage.Native;
@@ -22,6 +23,8 @@ namespace MTFO.Handlers
 
         public static void Process(Vehicle emergencyVehicle)
         {
+            if (!Config.EnableIntersectionControl) return;
+
             if (PluginState.ActiveIntersectionCenter.HasValue)
             {
                 if (CheckIfPastIntersection(emergencyVehicle)) return;
@@ -143,7 +146,7 @@ namespace MTFO.Handlers
 
             foreach (var vehicle in nearbyEntities.OfType<Vehicle>())
             {
-                if (!vehicle.Exists() || !vehicle.IsAlive || !vehicle.Driver.Exists() || vehicle.HasSiren) continue;
+                if (!vehicle.Exists() || !vehicle.IsAlive || !vehicle.Driver.Exists() || Functions.IsPlayerPerformingPullover() || vehicle.IsPoliceVehicle || vehicle.Model.IsEmergencyVehicle || Utils.IsDriverInPursuit(vehicle.Driver)) continue;
                 if (PluginState.TaskedVehicles.ContainsKey(vehicle) || PluginState.IntersectionTaskedVehicles.Contains(vehicle) || PluginState.IntersectionCreepTaskedVehicles.ContainsKey(vehicle)) continue;
 
                 var headingDot = Vector3.Dot(emergencyVehicle.ForwardVector, vehicle.ForwardVector);
@@ -179,7 +182,7 @@ namespace MTFO.Handlers
                 vehicleDriver.Tasks.PerformDrivingManeuver(vehicle, VehicleManeuver.GoForwardStraightBraking, 2000);
                 PluginState.IntersectionTaskedVehicles.Add(vehicle);
 
-                if (PluginState.TaskedVehicleBlips.ContainsKey(vehicle)) continue;
+                if (Config.ShowDebugLines && !PluginState.TaskedVehicleBlips.ContainsKey(vehicle))
                 {
                     var blip = vehicle.AttachBlip();
                     blip.Color = Color.Blue;
