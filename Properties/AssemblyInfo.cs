@@ -2,9 +2,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 
 [assembly: AssemblyTitle("MTFO")]
-[assembly:
-    AssemblyDescription(
-        "Enhances emergency vehicle realism by making traffic yield and intersections clear with optional traffic light control")]
+[assembly: AssemblyDescription("Enhances emergency vehicle realism by making traffic yield and intersections clear with optional traffic light control")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Guess1m")]
 [assembly: AssemblyProduct("MTFO")]
