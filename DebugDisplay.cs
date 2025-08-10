@@ -10,9 +10,8 @@ namespace MTFO
     {
         public static void OnFrameRender(object sender, GraphicsEventArgs e2)
         {
-            if (!Config.ShowDebugLines) return;
             var playerVehicle = Game.LocalPlayer.Character.CurrentVehicle;
-
+            if (!Config.ShowDebugLines) return;
             if (!playerVehicle.Exists()) return;
 
             foreach (var entry in PluginState.TaskedVehicles.Where(entry => entry.Key.Exists()))

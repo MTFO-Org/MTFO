@@ -69,7 +69,7 @@ namespace MTFO.Handlers
 
             if (isPastIntersection || isTooFarAway)
             {
-                Entry.ClearAllTrackedVehicles();
+                EntryPoint.ClearAllTrackedVehicles();
                 PluginState.IntersectionClearTime = Game.GameTime;
                 return true;
             }

@@ -1,28 +1,38 @@
 using System.Collections.Generic;
 using System.Linq;
+using LSPD_First_Response.Mod.API;
 using MTFO.Handlers;
 using MTFO.Misc;
 using Rage;
-using Rage.Attributes;
-
-[assembly: Plugin("MTFO", Description = "Enhances emergency vehicle realism by making traffic yield and intersections clear with optional traffic light control", Author = "Guess1m, Rohan")]
 
 namespace MTFO
 {
-    public static class Entry
+    public class EntryPoint : Plugin
     {
+         public override void Initialize()
+        {
+            Functions.OnOnDutyStateChanged += LSPDFRFunctions_OnOnDutyStateChanged;
+        }
+
+        private void LSPDFRFunctions_OnOnDutyStateChanged(bool onduty)
+        {
+            if (onduty)
+            {
+                Main();
+            }
+        }
+
+        public override void Finally()
+        {
+            Game.FrameRender -= DebugDisplay.OnFrameRender;
+            ClearAllTrackedVehicles();
+        }
         public static void Main()
         {
             PluginState.PluginFiber = new GameFiber(PluginLogic);
             PluginState.PluginFiber.Start();
             if (Config.ShowDebugLines) Game.FrameRender += DebugDisplay.OnFrameRender;
             Game.DisplayNotification("MTFO by Guess1m/Rohan loaded successfully.");
-        }
-
-        public static void OnUnload(bool unloading)
-        {
-            Game.FrameRender -= DebugDisplay.OnFrameRender;
-            ClearAllTrackedVehicles();
         }
 
         private static void PluginLogic()
