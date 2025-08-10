@@ -10,69 +10,41 @@ namespace MTFO.Handlers
 {
     internal static class IntersectionHandler
     {
-        //TODO: fix creeping deadzone when directly behind targetvehicle
-
-        // Opticom: Forces a nearby traffic light to turn green
         private static void SetTrafficLightGreen(Object trafficLight)
         {
-            // Set light green fiber
             GameFiber.StartNew(() =>
             {
-                // Force Green
                 NativeFunction.Natives.SET_ENTITY_TRAFFICLIGHT_OVERRIDE(trafficLight, 0);
-                // Wait for the configured duration
                 GameFiber.Wait(Config.OpticomGreenDurationMs);
-                // Revert the light back to its normal state
                 NativeFunction.Natives.SET_ENTITY_TRAFFICLIGHT_OVERRIDE(trafficLight, 3);
             });
         }
 
-        // Handles all logic related to approaching and managing intersections
         public static void Process(Vehicle emergencyVehicle)
         {
             if (PluginState.ActiveIntersectionCenter.HasValue)
             {
-                // If we have an active intersection, check if we've passed it.
                 if (CheckIfPastIntersection(emergencyVehicle)) return;
 
-                // If an intersection is active, manage the vehicles associated with it.
                 ManageExistingIntersectionTasks();
             }
             else
             {
-                // If no intersection is active, try to detect one.
+                if (Game.GameTime < PluginState.NextIntersectionScanTime) return;
                 DetectNewIntersection(emergencyVehicle);
+                PluginState.NextIntersectionScanTime = Game.GameTime + 250;
             }
 
-            // If we don't have an active intersection at this point, do nothing further.
             if (!PluginState.ActiveIntersectionCenter.HasValue) return;
 
-            // Process vehicles near the active intersection.
             ProcessNearbyVehicles(emergencyVehicle);
-        }
-
-        private static bool CheckIfPastIntersection(Vehicle emergencyVehicle)
-        {
-            if (PluginState.ActiveIntersectionCenter != null)
-            {
-                var vectorToIntersection = PluginState.ActiveIntersectionCenter.Value - emergencyVehicle.Position;
-                var dotPlayerToCenter = Vector3.Dot(emergencyVehicle.ForwardVector, vectorToIntersection);
-
-                // If we are moving away from the intersection or are too far past it...
-                if (!(dotPlayerToCenter < -10f) && !(vectorToIntersection.Length() > Config.IntersectionSearchMaxDistance + 20f)) return false;
-            }
-
-            // ...clear all tasks and start a cooldown to prevent re-detecting the same intersection.
-            Entry.ClearAllTrackedVehicles();
-            PluginState.IntersectionClearTime = Game.GameTime; // Start the cooldown timer
-            return true;
         }
 
         private static void ManageExistingIntersectionTasks()
         {
             if (PluginState.ActiveIntersectionCenter == null) return;
             var center = PluginState.ActiveIntersectionCenter.Value;
-            // Remove cross-traffic vehicles that are too far away.
+
             PluginState.IntersectionTaskedVehicles.RemoveWhere(v =>
             {
                 var shouldRemove = !v.Exists() || v.Position.DistanceTo(center) > 80f;
@@ -83,29 +55,35 @@ namespace MTFO.Handlers
 
                 return shouldRemove;
             });
-            // Remove "creeping" vehicles if they are too far, have finished, have been abandoned, or have timed out.
-            var creepersToUntask = PluginState.IntersectionCreepTaskedVehicles.Where(kvp => !kvp.Key.Exists() || kvp.Key.Position.DistanceTo(center) > 80f || kvp.Key.Position.DistanceTo(kvp.Value.TargetPosition) < Config.CreepTaskCompletionDistance || kvp.Key.Position.DistanceTo(kvp.Value.TargetPosition) > Config.CreepTaskAbandonDistance || Game.GameTime - kvp.Value.GameTimeStarted > Config.CreepTaskTimeoutMs).Select(kvp => kvp.Key).ToList();
-            foreach (var v in creepersToUntask)
-            {
-                if (v.Exists() && v.Driver.Exists()) v.Driver.Tasks.Clear();
-                if (PluginState.TaskedVehicleBlips.TryGetValue(v, out var blip))
-                {
-                    if (blip.Exists()) blip.Delete();
-                    PluginState.TaskedVehicleBlips.Remove(v);
-                }
+        }
 
-                PluginState.IntersectionCreepTaskedVehicles.Remove(v);
+        private static bool CheckIfPastIntersection(Vehicle emergencyVehicle)
+        {
+            if (PluginState.ActiveIntersectionCenter == null) return true;
+
+            var vectorToIntersection = PluginState.ActiveIntersectionCenter.Value - emergencyVehicle.Position;
+            var dotPlayerToCenter = Vector3.Dot(emergencyVehicle.ForwardVector, vectorToIntersection);
+
+            var isPastIntersection = dotPlayerToCenter < -10f;
+            var isTooFarAway = vectorToIntersection.Length() > Config.IntersectionSearchMaxDistance + 20f;
+
+            if (isPastIntersection || isTooFarAway)
+            {
+                Entry.ClearAllTrackedVehicles();
+                PluginState.IntersectionClearTime = Game.GameTime;
+                return true;
             }
+
+            return false;
         }
 
         private static void DetectNewIntersection(Vehicle emergencyVehicle)
         {
-            // Don't search for a new intersection if the cooldown is active.
             if (Game.GameTime - PluginState.IntersectionClearTime < Config.IntersectionDetectionCooldownMs) return;
 
             Object foundObject = null;
-            var allIntersectionModels = GameModels.TrafficLightModels.Concat(GameModels.StopSignModels).ToArray();
-            // Search in steps ahead of the player to find a traffic light or stop sign prop.
+            var allIntersectionModels = GameModels.AllIntersectionModels;
+
             for (var searchDistance = Config.IntersectionSearchMaxDistance; searchDistance > Config.IntersectionSearchMinDistance; searchDistance -= Config.IntersectionSearchStepSize)
             {
                 var searchPosition = emergencyVehicle.Position + emergencyVehicle.ForwardVector * searchDistance;
@@ -113,7 +91,7 @@ namespace MTFO.Handlers
                 {
                     foundObject = NativeFunction.Natives.GET_CLOSEST_OBJECT_OF_TYPE<Object>(searchPosition, Config.IntersectionSearchRadius, modelHash, false, false, false);
                     if (foundObject == null) continue;
-                    // Check if the found object's heading is aligned with the player's.
+
                     var isHeadingValid = false;
                     var headingDiff = Math.Abs(emergencyVehicle.Heading - foundObject.Heading);
                     if (headingDiff < Config.IntersectionHeadingThreshold || headingDiff > 360 - Config.IntersectionHeadingThreshold)
@@ -122,11 +100,24 @@ namespace MTFO.Handlers
                     foundObject = null;
                 }
 
-                if (foundObject != null) break;
+                if (foundObject != null)
+                {
+                    if (foundObject.Position.DistanceTo(emergencyVehicle.Position) > Config.IntersectionSearchMaxDistance + 5f)
+                    {
+                        foundObject = null;
+                        continue;
+                    }
+
+                    var vectorToObject = foundObject.Position - emergencyVehicle.Position;
+                    if (Vector3.Dot(emergencyVehicle.ForwardVector, vectorToObject) < 0)
+                        foundObject = null;
+                    else
+                        break;
+                }
             }
 
-            // If a valid object was found, set it as the active intersection.
             if (foundObject == null) return;
+
             PluginState.IsStopSignIntersection = GameModels.StopSignModels.Contains(foundObject.Model.Hash);
             if (PluginState.IsStopSignIntersection)
             {
@@ -145,6 +136,9 @@ namespace MTFO.Handlers
         {
             if (PluginState.ActiveIntersectionCenter == null) return;
             var intersectionCenter = PluginState.ActiveIntersectionCenter.Value;
+
+            if (Config.ShowDebugLines) PluginState.FailedCreepCandidates.Clear();
+
             var nearbyEntities = World.GetEntities(intersectionCenter, 60f, GetEntitiesFlags.ConsiderAllVehicles | GetEntitiesFlags.ExcludePlayerVehicle);
 
             foreach (var vehicle in nearbyEntities.OfType<Vehicle>())
@@ -153,70 +147,6 @@ namespace MTFO.Handlers
                 if (PluginState.TaskedVehicles.ContainsKey(vehicle) || PluginState.IntersectionTaskedVehicles.Contains(vehicle) || PluginState.IntersectionCreepTaskedVehicles.ContainsKey(vehicle)) continue;
 
                 var headingDot = Vector3.Dot(emergencyVehicle.ForwardVector, vehicle.ForwardVector);
-
-                if (headingDot > 0.8f && vehicle.Speed < Config.MinYieldSpeedMph)
-                {
-                    var vectorToVehicle = vehicle.Position - emergencyVehicle.Position;
-                    var forwardDist = Vector3.Dot(emergencyVehicle.ForwardVector, vectorToVehicle);
-                    if (forwardDist > 2f && forwardDist < Config.IntersectionSearchMaxDistance)
-                    {
-                        var driver = vehicle.Driver;
-                        var lateralOffset = Vector3.Dot(vectorToVehicle, emergencyVehicle.RightVector);
-
-                        var checkStartPos = vehicle.Position + new Vector3(0, 0, 0.5f);
-                        var sideCheckDistance = Config.IntersectionCreepSideDistance + vehicle.Width / 2f;
-                        var traceFlags = TraceFlags.IntersectVehicles | TraceFlags.IntersectObjects;
-
-                        var rightHit = World.TraceLine(checkStartPos, checkStartPos + vehicle.RightVector * sideCheckDistance, traceFlags, vehicle);
-                        var leftHit = World.TraceLine(checkStartPos, checkStartPos - vehicle.RightVector * sideCheckDistance, traceFlags, vehicle);
-
-                        var canGoRight = !rightHit.Hit;
-                        var canGoLeft = !leftHit.Hit;
-
-                        Vector3? sidePushDirection = null;
-
-                        if (Math.Abs(lateralOffset) < 1.0f)
-                        {
-                            if (canGoRight) sidePushDirection = emergencyVehicle.RightVector;
-                            else if (canGoLeft) sidePushDirection = -emergencyVehicle.RightVector;
-                        }
-                        else if (lateralOffset > 0)
-                        {
-                            if (canGoRight) sidePushDirection = emergencyVehicle.RightVector;
-                        }
-                        else
-                        {
-                            if (canGoLeft) sidePushDirection = -emergencyVehicle.RightVector;
-                        }
-
-                        if (!sidePushDirection.HasValue) continue;
-
-                        var targetPos = vehicle.Position + vehicle.ForwardVector * Config.IntersectionCreepForwardDistance + sidePushDirection.Value * Config.IntersectionCreepSideDistance;
-
-                        var groundZ = World.GetGroundZ(targetPos, false, false);
-                        if (!groundZ.HasValue) continue;
-
-                        var finalTargetPos = new Vector3(targetPos.X, targetPos.Y, groundZ.Value);
-
-                        var pathTrace = World.TraceLine(vehicle.Position, finalTargetPos, TraceFlags.IntersectWorld, vehicle);
-                        if (pathTrace.Hit) continue;
-
-                        driver.Tasks.Clear();
-                        driver.Tasks.DriveToPosition(finalTargetPos, Config.IntersectionCreepDriveSpeed, VehicleDrivingFlags.Emergency | VehicleDrivingFlags.StopAtDestination);
-
-                        var creepTask = new CreepTask { TargetPosition = finalTargetPos, GameTimeStarted = Game.GameTime };
-                        PluginState.IntersectionCreepTaskedVehicles.Add(vehicle, creepTask);
-
-                        if (!PluginState.TaskedVehicleBlips.ContainsKey(vehicle))
-                        {
-                            var blip = vehicle.AttachBlip();
-                            blip.Color = Color.Purple;
-                            PluginState.TaskedVehicleBlips.Add(vehicle, blip);
-                        }
-
-                        continue;
-                    }
-                }
 
                 var isPotentialTarget = false;
                 if (PluginState.IsStopSignIntersection)
