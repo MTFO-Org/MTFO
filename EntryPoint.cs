@@ -95,21 +95,22 @@ namespace MTFO
 
         public static void ClearAllTrackedVehicles()
         {
-            foreach (var blip in PluginState.TaskedVehicleBlips.Values.Where(blip => blip.Exists()))
-                blip.Delete();
-
-            PluginState.TaskedVehicleBlips.Clear();
-
             var allTrackedVehicles = new HashSet<Vehicle>();
-            foreach (var v in PluginState.TaskedVehicles.Keys) allTrackedVehicles.Add(v);
-            foreach (var v in PluginState.IntersectionTaskedVehicles) allTrackedVehicles.Add(v);
-            foreach (var v in PluginState.IntersectionCreepTaskedVehicles.Keys) allTrackedVehicles.Add(v);
-            foreach (var v in PluginState.OncomingBrakingVehicles.Keys) allTrackedVehicles.Add(v);
+            allTrackedVehicles.UnionWith(PluginState.TaskedVehicles.Keys);
+            allTrackedVehicles.UnionWith(PluginState.IntersectionTaskedVehicles);
+            allTrackedVehicles.UnionWith(PluginState.IntersectionCreepTaskedVehicles.Keys);
+            allTrackedVehicles.UnionWith(PluginState.OncomingBrakingVehicles.Keys);
 
             foreach (var vehicle in allTrackedVehicles)
-                if (vehicle.Exists() && vehicle.Driver.Exists())
-                    vehicle.Driver.Tasks.Clear();
+            {
+                if (!vehicle.Exists()) continue;
 
+                if (vehicle.Driver.Exists()) vehicle.Driver.Tasks.Clear();
+
+                if (PluginState.TaskedVehicleBlips.TryGetValue(vehicle, out var blip) && blip.Exists()) blip.Delete();
+            }
+
+            PluginState.TaskedVehicleBlips.Clear();
             PluginState.TaskedVehicles.Clear();
             PluginState.IntersectionTaskedVehicles.Clear();
             PluginState.IntersectionCreepTaskedVehicles.Clear();

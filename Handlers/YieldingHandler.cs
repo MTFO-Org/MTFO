@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Linq;
 using LSPD_First_Response.Mod.API;
 using MTFO.Misc;
 using Rage;
@@ -119,6 +120,8 @@ namespace MTFO.Handlers
 
         private static void FindAndTaskNewVehicles(Vehicle emergencyVehicle)
         {
+            if (Config.ShowDebugLines) PluginState.FailedCreepCandidates.Clear();
+
             var nearbyEntities = World.GetEntities(emergencyVehicle.Position, Config.DetectionRange + 5f, GetEntitiesFlags.ConsiderAllVehicles | GetEntitiesFlags.ExcludePlayerVehicle);
             var creepCandidates = new List<Vehicle>();
             var assignedCreepTargetPositions = new List<Vector3>();
@@ -174,70 +177,7 @@ namespace MTFO.Handlers
                 }
                 else if (Config.EnableSameSideYield && headingDot > 0.2f)
                 {
-                    var checkStart = vehicle.Position + vehicle.ForwardVector * (vehicle.Length / 2f) + new Vector3(0, 0, 0.5f);
-                    const float sideCheckDistance = 3.5f;
-                    var rightHit = World.TraceLine(checkStart, checkStart + vehicle.RightVector * sideCheckDistance, TraceFlags.IntersectVehicles | TraceFlags.IntersectObjects, vehicle);
-                    var leftHit = World.TraceLine(checkStart, checkStart - vehicle.RightVector * sideCheckDistance, TraceFlags.IntersectVehicles | TraceFlags.IntersectObjects, vehicle);
-
-                    var canGoRight = !rightHit.Hit;
-                    var canGoLeft = !leftHit.Hit;
-                    Vector3 rawTargetPos;
-                    YieldTaskType taskType;
-
-                    var preferRight = lateralOffset > -1.5f;
-
-                    if (preferRight)
-                    {
-                        if (canGoRight)
-                        {
-                            taskType = YieldTaskType.MoveRight;
-                            rawTargetPos = vehicle.Position + vehicle.RightVector * Config.SideMoveDistance + vehicle.ForwardVector * Config.ForwardMoveDistance;
-                        }
-                        else if (canGoLeft)
-                        {
-                            taskType = YieldTaskType.MoveLeft;
-                            rawTargetPos = vehicle.Position - vehicle.RightVector * Config.SideMoveDistance + vehicle.ForwardVector * Config.ForwardMoveDistance;
-                        }
-                        else
-                        {
-                            taskType = YieldTaskType.ForceMoveRight;
-                            rawTargetPos = vehicle.Position + vehicle.RightVector * Config.ForceSideMoveDistance + vehicle.ForwardVector * Config.ForwardMoveDistance;
-                        }
-                    }
-                    else
-                    {
-                        if (canGoLeft)
-                        {
-                            taskType = YieldTaskType.MoveLeft;
-                            rawTargetPos = vehicle.Position - vehicle.RightVector * Config.SideMoveDistance + vehicle.ForwardVector * Config.ForwardMoveDistance;
-                        }
-                        else if (canGoRight)
-                        {
-                            taskType = YieldTaskType.MoveRight;
-                            rawTargetPos = vehicle.Position + vehicle.RightVector * Config.SideMoveDistance + vehicle.ForwardVector * Config.ForwardMoveDistance;
-                        }
-                        else
-                        {
-                            taskType = YieldTaskType.ForceMoveLeft;
-                            rawTargetPos = vehicle.Position - vehicle.RightVector * Config.ForceSideMoveDistance + vehicle.ForwardVector * Config.ForwardMoveDistance;
-                        }
-                    }
-
-                    var groundZ = World.GetGroundZ(rawTargetPos, false, false);
-                    var finalTargetPos = groundZ.HasValue ? new Vector3(rawTargetPos.X, rawTargetPos.Y, groundZ.Value) : rawTargetPos;
-
-                    var vehicleLateralOffset = Vector3.Dot(vehicle.Position - emergencyVehicle.Position, emergencyVehicle.RightVector);
-                    var targetLateralOffset = Vector3.Dot(finalTargetPos - emergencyVehicle.Position, emergencyVehicle.RightVector);
-
-                    if (vehicleLateralOffset * targetLateralOffset < 0f)
-                    {
-                        if (Config.ShowDebugLines) PluginState.FailedCreepCandidates[vehicle] = finalTargetPos;
-                        continue;
-                    }
-
-                    var pathTrace = World.TraceLine(vehicle.Position, finalTargetPos, TraceFlags.IntersectWorld, vehicle);
-                    if (pathTrace.Hit) continue;
-
+                    if (!TryFindValidYieldPosition(vehicle, emergencyVehicle, lateralOffset, out var finalTargetPos, out var taskType)) continue;
                     driver.Tasks.Clear();
                     driver.Tasks.DriveToPosition(finalTargetPos, Config.DriveSpeed, VehicleDrivingFlags.Normal | VehicleDrivingFlags.StopAtDestination);
                     PluginState.TaskedVehicles.Add(vehicle, new YieldTask { TargetPosition = finalTargetPos, TaskType = taskType, GameTimeStarted = Game.GameTime });
@@ -281,7 +221,112 @@ namespace MTFO.Handlers
 
                 if (!sidePushDirection.HasValue) continue;
 
-                var tentativeTargetPos = vehicle.Position + vehicle.ForwardVector * Config.IntersectionCreepForwardDistance + sidePushDirection.Value * Config.IntersectionCreepSideDistance;
+                if (!TryFindValidCreepPosition(vehicle, emergencyVehicle, sidePushDirection.Value, assignedCreepTargetPositions, out var finalTargetPos)) continue;
+                vehicle.Driver.Tasks.Clear();
+                vehicle.Driver.Tasks.DriveToPosition(finalTargetPos, Config.IntersectionCreepDriveSpeed, VehicleDrivingFlags.Normal | VehicleDrivingFlags.StopAtDestination);
+
+                var creepTask = new CreepTask { TargetPosition = finalTargetPos, GameTimeStarted = Game.GameTime };
+                PluginState.IntersectionCreepTaskedVehicles.Add(vehicle, creepTask);
+                assignedCreepTargetPositions.Add(finalTargetPos);
+
+                if (!Config.ShowDebugLines || PluginState.TaskedVehicleBlips.ContainsKey(vehicle)) continue;
+                var blip = vehicle.AttachBlip();
+                blip.Color = Color.Fuchsia;
+                PluginState.TaskedVehicleBlips.Add(vehicle, blip);
+            }
+        }
+
+        private static bool TryFindValidYieldPosition(Vehicle vehicle, Vehicle emergencyVehicle, float lateralOffset, out Vector3 finalTargetPos, out YieldTaskType taskType)
+        {
+            var checkStart = vehicle.Position + vehicle.ForwardVector * (vehicle.Length / 2f) + new Vector3(0, 0, 0.5f);
+            const float sideCheckDistance = 3.5f;
+            var rightHit = World.TraceLine(checkStart, checkStart + vehicle.RightVector * sideCheckDistance, TraceFlags.IntersectVehicles | TraceFlags.IntersectObjects, vehicle);
+            var leftHit = World.TraceLine(checkStart, checkStart - vehicle.RightVector * sideCheckDistance, TraceFlags.IntersectVehicles | TraceFlags.IntersectObjects, vehicle);
+
+            var canGoRight = !rightHit.Hit;
+            var canGoLeft = !leftHit.Hit;
+            var preferRight = lateralOffset > -1.5f;
+
+            Vector3 sideDirection;
+            float sideDistance;
+
+            if (preferRight)
+            {
+                if (canGoRight)
+                {
+                    taskType = YieldTaskType.MoveRight;
+                    sideDirection = vehicle.RightVector;
+                    sideDistance = Config.SideMoveDistance;
+                }
+                else if (canGoLeft)
+                {
+                    taskType = YieldTaskType.MoveLeft;
+                    sideDirection = -vehicle.RightVector;
+                    sideDistance = Config.SideMoveDistance;
+                }
+                else
+                {
+                    taskType = YieldTaskType.ForceMoveRight;
+                    sideDirection = vehicle.RightVector;
+                    sideDistance = Config.ForceSideMoveDistance;
+                }
+            }
+            else
+            {
+                if (canGoLeft)
+                {
+                    taskType = YieldTaskType.MoveLeft;
+                    sideDirection = -vehicle.RightVector;
+                    sideDistance = Config.SideMoveDistance;
+                }
+                else if (canGoRight)
+                {
+                    taskType = YieldTaskType.MoveRight;
+                    sideDirection = vehicle.RightVector;
+                    sideDistance = Config.SideMoveDistance;
+                }
+                else
+                {
+                    taskType = YieldTaskType.ForceMoveLeft;
+                    sideDirection = -vehicle.RightVector;
+                    sideDistance = Config.ForceSideMoveDistance;
+                }
+            }
+
+            for (var forwardDistance = Config.ForwardMoveDistance; forwardDistance >= 5f; forwardDistance -= 5f)
+            {
+                var rawTargetPos = vehicle.Position + sideDirection * sideDistance + vehicle.ForwardVector * forwardDistance;
+
+                var groundZ = World.GetGroundZ(rawTargetPos, false, false);
+                if (!groundZ.HasValue) continue;
+
+                var tempTargetPos = new Vector3(rawTargetPos.X, rawTargetPos.Y, groundZ.Value);
+
+                var vehicleLateralOffset = Vector3.Dot(vehicle.Position - emergencyVehicle.Position, emergencyVehicle.RightVector);
+                var targetLateralOffset = Vector3.Dot(tempTargetPos - emergencyVehicle.Position, emergencyVehicle.RightVector);
+                if (vehicleLateralOffset * targetLateralOffset < 0f)
+                {
+                    if (Config.ShowDebugLines) PluginState.FailedCreepCandidates[vehicle] = tempTargetPos;
+                    continue;
+                }
+
+                var pathTrace = World.TraceLine(vehicle.Position, tempTargetPos, TraceFlags.IntersectWorld, vehicle);
+                if (pathTrace.Hit) continue;
+
+                finalTargetPos = tempTargetPos;
+                return true;
+            }
+
+            finalTargetPos = Vector3.Zero;
+            return false;
+        }
+
+        private static bool TryFindValidCreepPosition(Vehicle vehicle, Vehicle emergencyVehicle, Vector3 sidePushDirection, ICollection<Vector3> assignedCreepTargetPositions, out Vector3 finalTargetPos)
+        {
+            for (var forwardDistance = Config.IntersectionCreepForwardDistance; forwardDistance >= 3.0f; forwardDistance -= 2.5f)
+            {
+                var sideDistance = Config.IntersectionCreepSideDistance;
+                var tentativeTargetPos = vehicle.Position + vehicle.ForwardVector * forwardDistance + sidePushDirection * sideDistance;
 
                 var groundZ = World.GetGroundZ(tentativeTargetPos, false, false);
                 if (!groundZ.HasValue)
@@ -290,58 +335,29 @@ namespace MTFO.Handlers
                     continue;
                 }
 
-                var finalTargetPos = new Vector3(tentativeTargetPos.X, tentativeTargetPos.Y, groundZ.Value);
+                var tempFinalPos = new Vector3(tentativeTargetPos.X, tentativeTargetPos.Y, groundZ.Value);
 
                 var vehicleLateralOffset = Vector3.Dot(vehicle.Position - emergencyVehicle.Position, emergencyVehicle.RightVector);
-                var targetLateralOffset = Vector3.Dot(finalTargetPos - emergencyVehicle.Position, emergencyVehicle.RightVector);
-
-                if (vehicleLateralOffset * targetLateralOffset < 0f)
+                var targetLateralOffset = Vector3.Dot(tempFinalPos - emergencyVehicle.Position, emergencyVehicle.RightVector);
+                if (vehicleLateralOffset * targetLateralOffset < 0f || assignedCreepTargetPositions.Any(assignedTarget => tempFinalPos.DistanceTo(assignedTarget) < vehicle.Width + 2.5f) || Math.Abs(tempFinalPos.Z - vehicle.Position.Z) > 3.0f)
                 {
-                    if (Config.ShowDebugLines) PluginState.FailedCreepCandidates[vehicle] = finalTargetPos;
+                    if (Config.ShowDebugLines) PluginState.FailedCreepCandidates[vehicle] = tempFinalPos;
                     continue;
                 }
 
-                var positionConflict = false;
-                foreach (var assignedTarget in assignedCreepTargetPositions)
-                    if (finalTargetPos.DistanceTo(assignedTarget) < vehicle.Width + 2.5f)
-                    {
-                        positionConflict = true;
-                        break;
-                    }
-
-                if (positionConflict)
-                {
-                    if (Config.ShowDebugLines) PluginState.FailedCreepCandidates[vehicle] = finalTargetPos;
-                    continue;
-                }
-
-                if (Math.Abs(finalTargetPos.Z - vehicle.Position.Z) > 3.0f)
-                {
-                    if (Config.ShowDebugLines) PluginState.FailedCreepCandidates[vehicle] = finalTargetPos;
-                    continue;
-                }
-
-                var pathTrace = World.TraceLine(vehicle.Position, finalTargetPos, TraceFlags.IntersectWorld, vehicle);
+                var pathTrace = World.TraceLine(vehicle.Position, tempFinalPos, TraceFlags.IntersectWorld, vehicle);
                 if (pathTrace.Hit)
                 {
-                    if (Config.ShowDebugLines) PluginState.FailedCreepCandidates[vehicle] = finalTargetPos;
+                    if (Config.ShowDebugLines) PluginState.FailedCreepCandidates[vehicle] = tempFinalPos;
                     continue;
                 }
 
-                vehicle.Driver.Tasks.Clear();
-                vehicle.Driver.Tasks.DriveToPosition(finalTargetPos, Config.IntersectionCreepDriveSpeed, VehicleDrivingFlags.Normal | VehicleDrivingFlags.StopAtDestination);
-
-                var creepTask = new CreepTask { TargetPosition = finalTargetPos, GameTimeStarted = Game.GameTime };
-                PluginState.IntersectionCreepTaskedVehicles.Add(vehicle, creepTask);
-                assignedCreepTargetPositions.Add(finalTargetPos);
-
-                if (Config.ShowDebugLines && !PluginState.TaskedVehicleBlips.ContainsKey(vehicle))
-                {
-                    var blip = vehicle.AttachBlip();
-                    blip.Color = Color.Fuchsia;
-                    PluginState.TaskedVehicleBlips.Add(vehicle, blip);
-                }
+                finalTargetPos = tempFinalPos;
+                return true;
             }
+
+            finalTargetPos = Vector3.Zero;
+            return false;
         }
     }
 }

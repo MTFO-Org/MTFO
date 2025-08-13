@@ -13,6 +13,60 @@ namespace MTFO
             {
                 iniFile = new InitializationFile(@"Plugins/LSPDFR/MTFO.ini");
                 iniFile.Create();
+
+                // Configuration
+                if (!iniFile.DoesKeyExist("Configuration", "ShowDebugLines")) iniFile.Write("Configuration", "ShowDebugLines", true);
+                if (!iniFile.DoesKeyExist("Configuration", "EnableOpticom")) iniFile.Write("Configuration", "EnableOpticom", true);
+                if (!iniFile.DoesKeyExist("Configuration", "EnableSameSideYield")) iniFile.Write("Configuration", "EnableSameSideYield", true);
+                if (!iniFile.DoesKeyExist("Configuration", "EnableOncomingBraking")) iniFile.Write("Configuration", "EnableOncomingBraking", true);
+                if (!iniFile.DoesKeyExist("Configuration", "EnableIntersectionCreep")) iniFile.Write("Configuration", "EnableIntersectionCreep", true);
+                if (!iniFile.DoesKeyExist("Configuration", "EnableIntersectionControl")) iniFile.Write("Configuration", "EnableIntersectionControl", true);
+
+                // TuningConstants
+                if (!iniFile.DoesKeyExist("TuningConstants", "OpticomGreenDurationMs")) iniFile.Write("TuningConstants", "OpticomGreenDurationMs", 6000);
+                if (!iniFile.DoesKeyExist("TuningConstants", "StoppedPlayerTimeoutMs")) iniFile.Write("TuningConstants", "StoppedPlayerTimeoutMs", 2000);
+                if (!iniFile.DoesKeyExist("TuningConstants", "IntersectionDetectionCooldownMs")) iniFile.Write("TuningConstants", "IntersectionDetectionCooldownMs", 1300);
+                if (!iniFile.DoesKeyExist("TuningConstants", "DetectionRange")) iniFile.Write("TuningConstants", "DetectionRange", 55f);
+                if (!iniFile.DoesKeyExist("TuningConstants", "DetectionStartWidth")) iniFile.Write("TuningConstants", "DetectionStartWidth", 3.5f);
+                if (!iniFile.DoesKeyExist("TuningConstants", "DetectionEndWidth")) iniFile.Write("TuningConstants", "DetectionEndWidth", 6.25f);
+                if (!iniFile.DoesKeyExist("TuningConstants", "DetectionHeightOffset")) iniFile.Write("TuningConstants", "DetectionHeightOffset", -1f);
+                if (!iniFile.DoesKeyExist("TuningConstants", "DetectionAreaHeight")) iniFile.Write("TuningConstants", "DetectionAreaHeight", 12.0f);
+
+                // YieldParams
+                if (!iniFile.DoesKeyExist("YieldParams", "ForwardMoveDistance")) iniFile.Write("YieldParams", "ForwardMoveDistance", 35f);
+                if (!iniFile.DoesKeyExist("YieldParams", "SideMoveDistance")) iniFile.Write("YieldParams", "SideMoveDistance", 6f);
+                if (!iniFile.DoesKeyExist("YieldParams", "ForceSideMoveDistance")) iniFile.Write("YieldParams", "ForceSideMoveDistance", 6.0f);
+                if (!iniFile.DoesKeyExist("YieldParams", "DriveSpeed")) iniFile.Write("YieldParams", "DriveSpeed", 12f);
+
+                // Same-sideYieldParams
+                if (!iniFile.DoesKeyExist("Same-sideYieldParams", "SameSideYieldCompletionDistance")) iniFile.Write("Same-sideYieldParams", "SameSideYieldCompletionDistance", 3.0f);
+                if (!iniFile.DoesKeyExist("Same-sideYieldParams", "SameSideYieldAbandonDistance")) iniFile.Write("Same-sideYieldParams", "SameSideYieldAbandonDistance", 45.0f);
+                if (!iniFile.DoesKeyExist("Same-sideYieldParams", "SameSideYieldTimeoutMs")) iniFile.Write("Same-sideYieldParams", "SameSideYieldTimeoutMs", 3000);
+
+                // OncomingTraffic
+                if (!iniFile.DoesKeyExist("OncomingTraffic", "OncomingBrakeHeadingDot")) iniFile.Write("OncomingTraffic", "OncomingBrakeHeadingDot", -0.7f);
+                if (!iniFile.DoesKeyExist("OncomingTraffic", "OncomingBrakeMinLateral")) iniFile.Write("OncomingTraffic", "OncomingBrakeMinLateral", -19.0f);
+                if (!iniFile.DoesKeyExist("OncomingTraffic", "OncomingBrakeMaxLateral")) iniFile.Write("OncomingTraffic", "OncomingBrakeMaxLateral", -1.5f);
+                if (!iniFile.DoesKeyExist("OncomingTraffic", "OncomingBrakeDurationMs")) iniFile.Write("OncomingTraffic", "OncomingBrakeDurationMs", 1500);
+
+                // IntersectionDetection
+                if (!iniFile.DoesKeyExist("IntersectionDetection", "IntersectionSearchMinDistance")) iniFile.Write("IntersectionDetection", "IntersectionSearchMinDistance", 30f);
+                if (!iniFile.DoesKeyExist("IntersectionDetection", "IntersectionSearchMaxDistance")) iniFile.Write("IntersectionDetection", "IntersectionSearchMaxDistance", 45f);
+                if (!iniFile.DoesKeyExist("IntersectionDetection", "IntersectionSearchStepSize")) iniFile.Write("IntersectionDetection", "IntersectionSearchStepSize", 7.0f);
+                if (!iniFile.DoesKeyExist("IntersectionDetection", "IntersectionSearchRadius")) iniFile.Write("IntersectionDetection", "IntersectionSearchRadius", 40.0f);
+                if (!iniFile.DoesKeyExist("IntersectionDetection", "IntersectionHeadingThreshold")) iniFile.Write("IntersectionDetection", "IntersectionHeadingThreshold", 40.0f);
+                if (!iniFile.DoesKeyExist("IntersectionDetection", "CrossTrafficHeadingDotThreshold")) iniFile.Write("IntersectionDetection", "CrossTrafficHeadingDotThreshold", 0.25f);
+
+                // IntersectionCreep
+                if (!iniFile.DoesKeyExist("IntersectionCreep", "MinYieldSpeedMph")) iniFile.Write("IntersectionCreep", "MinYieldSpeedMph", 4.0f);
+                if (!iniFile.DoesKeyExist("IntersectionCreep", "IntersectionCreepForwardDistance")) iniFile.Write("IntersectionCreep", "IntersectionCreepForwardDistance", 8.5f);
+                if (!iniFile.DoesKeyExist("IntersectionCreep", "IntersectionCreepSideDistance")) iniFile.Write("IntersectionCreep", "IntersectionCreepSideDistance", 6.5f);
+                if (!iniFile.DoesKeyExist("IntersectionCreep", "IntersectionCreepDriveSpeed")) iniFile.Write("IntersectionCreep", "IntersectionCreepDriveSpeed", 12f);
+                if (!iniFile.DoesKeyExist("IntersectionCreep", "CreepTaskCompletionDistance")) iniFile.Write("IntersectionCreep", "CreepTaskCompletionDistance", 1.5f);
+                if (!iniFile.DoesKeyExist("IntersectionCreep", "CreepTaskAbandonDistance")) iniFile.Write("IntersectionCreep", "CreepTaskAbandonDistance", 13.0f);
+                if (!iniFile.DoesKeyExist("IntersectionCreep", "CreepTaskTimeoutMs")) iniFile.Write("IntersectionCreep", "CreepTaskTimeoutMs", 2500);
+
+                // Read all values
                 ShowDebugLines = iniFile.ReadBoolean("Configuration", "ShowDebugLines", ShowDebugLines);
                 EnableOpticom = iniFile.ReadBoolean("Configuration", "EnableOpticom", EnableOpticom);
                 EnableSameSideYield = iniFile.ReadBoolean("Configuration", "EnableSameSideYield", EnableSameSideYield);
@@ -94,7 +148,7 @@ namespace MTFO
 
         public static float DetectionStartWidth = 3.5f;
 
-        public static float DetectionEndWidth = 5.7f;
+        public static float DetectionEndWidth = 6.25f;
 
         public static float DetectionHeightOffset = -1f;
 
