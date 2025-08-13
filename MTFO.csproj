@@ -47,6 +47,7 @@
         <Reference Include="System.Xml"/>
     </ItemGroup>
     <ItemGroup>
+        <Compile Include="Handlers\AroundPlayerHandler.cs"/>
         <Compile Include="Misc\PluginState.cs"/>
         <Compile Include="Misc\DataModels.cs"/>
         <Compile Include="Handlers\IntersectionHandler.cs"/>
@@ -61,10 +62,7 @@
         <None Include="packages.config"/>
     </ItemGroup>
     <ItemGroup>
-        <Folder Include="Handlers\"/>
-    </ItemGroup>
-    <ItemGroup>
-        <Content Include="SampleFiles\sample.ini"/>
+        <Content Include="ConfigFile\MTFO.ini"/>
     </ItemGroup>
     <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets"/>
     <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

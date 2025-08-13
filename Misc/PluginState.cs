@@ -8,6 +8,7 @@ namespace MTFO.Misc
         public static bool IsSilentModeActive;
         public static GameFiber PluginFiber;
         public static uint TimePlayerStopped;
+        public static Vehicle LastPlayerVehicle;
 
         public static uint NextYieldScanTime;
         public static uint NextIntersectionScanTime;
@@ -22,10 +23,14 @@ namespace MTFO.Misc
 
         public static readonly Dictionary<Vehicle, Vector3> FailedCreepCandidates = new Dictionary<Vehicle, Vector3>();
 
+        public static readonly Dictionary<Vehicle, (Vector3, OvertakeFailureReason)> FailedAroundPlayerCandidates = new Dictionary<Vehicle, (Vector3, OvertakeFailureReason)>();
+
         public static Vector3? ActiveIntersectionCenter;
         public static bool IsStopSignIntersection;
         public static uint IntersectionClearTime;
 
         public static readonly Dictionary<Vehicle, Blip> TaskedVehicleBlips = new Dictionary<Vehicle, Blip>();
+
+        public static readonly Dictionary<Vehicle, AroundPlayerTask> AroundPlayerTaskedVehicles = new Dictionary<Vehicle, AroundPlayerTask>();
     }
 }

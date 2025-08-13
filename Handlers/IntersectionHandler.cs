@@ -70,14 +70,10 @@ namespace MTFO.Handlers
             var isPastIntersection = dotPlayerToCenter < -10f;
             var isTooFarAway = vectorToIntersection.Length() > Config.IntersectionSearchMaxDistance + 20f;
 
-            if (isPastIntersection || isTooFarAway)
-            {
-                EntryPoint.ClearAllTrackedVehicles();
-                PluginState.IntersectionClearTime = Game.GameTime;
-                return true;
-            }
-
-            return false;
+            if (!isPastIntersection && !isTooFarAway) return false;
+            EntryPoint.ClearAllTrackedVehicles();
+            PluginState.IntersectionClearTime = Game.GameTime;
+            return true;
         }
 
         private static void DetectNewIntersection(Vehicle emergencyVehicle)
@@ -103,20 +99,18 @@ namespace MTFO.Handlers
                     foundObject = null;
                 }
 
-                if (foundObject != null)
+                if (foundObject == null) continue;
+                if (foundObject.Position.DistanceTo(emergencyVehicle.Position) > Config.IntersectionSearchMaxDistance + 5f)
                 {
-                    if (foundObject.Position.DistanceTo(emergencyVehicle.Position) > Config.IntersectionSearchMaxDistance + 5f)
-                    {
-                        foundObject = null;
-                        continue;
-                    }
-
-                    var vectorToObject = foundObject.Position - emergencyVehicle.Position;
-                    if (Vector3.Dot(emergencyVehicle.ForwardVector, vectorToObject) < 0)
-                        foundObject = null;
-                    else
-                        break;
+                    foundObject = null;
+                    continue;
                 }
+
+                var vectorToObject = foundObject.Position - emergencyVehicle.Position;
+                if (Vector3.Dot(emergencyVehicle.ForwardVector, vectorToObject) < 0)
+                    foundObject = null;
+                else
+                    break;
             }
 
             if (foundObject == null) return;
@@ -182,12 +176,10 @@ namespace MTFO.Handlers
                 vehicleDriver.Tasks.PerformDrivingManeuver(vehicle, VehicleManeuver.GoForwardStraightBraking, 2000);
                 PluginState.IntersectionTaskedVehicles.Add(vehicle);
 
-                if (Config.ShowDebugLines && !PluginState.TaskedVehicleBlips.ContainsKey(vehicle))
-                {
-                    var blip = vehicle.AttachBlip();
-                    blip.Color = Color.Blue;
-                    PluginState.TaskedVehicleBlips.Add(vehicle, blip);
-                }
+                if (!Config.ShowDebugLines || PluginState.TaskedVehicleBlips.ContainsKey(vehicle)) continue;
+                var blip = vehicle.AttachBlip();
+                blip.Color = Color.Blue;
+                PluginState.TaskedVehicleBlips.Add(vehicle, blip);
             }
         }
     }

@@ -42,55 +42,86 @@ namespace MTFO
             while (true)
             {
                 GameFiber.Yield();
-                var playerVehicle = Game.LocalPlayer.Character.CurrentVehicle;
+                var playerCharacter = Game.LocalPlayer.Character;
+                var currentVehicle = playerCharacter.CurrentVehicle;
 
-                if (playerVehicle.Exists() && playerVehicle.HasSiren)
+                if (currentVehicle.Exists() && currentVehicle.HasSiren) PluginState.LastPlayerVehicle = currentVehicle;
+
+                var sirenVehicle = PluginState.LastPlayerVehicle;
+
+                if (sirenVehicle.Exists() && sirenVehicle.HasSiren && sirenVehicle.IsSirenOn)
                 {
-                    if (playerVehicle.IsSirenOn)
+                    AroundPlayerHandler.Process(sirenVehicle);
+
+                    if (!currentVehicle.Exists() || currentVehicle != sirenVehicle) continue;
+                    if (!PluginState.IsSilentModeActive)
                     {
-                        if (playerVehicle.Speed < 0.1f)
-                        {
-                            if (PluginState.TimePlayerStopped == 0) PluginState.TimePlayerStopped = Game.GameTime;
-                        }
-                        else
-                        {
-                            PluginState.TimePlayerStopped = 0;
-                        }
+                        sirenVehicle.ShouldVehiclesYieldToThisVehicle = false;
+                        PluginState.IsSilentModeActive = true;
+                    }
 
-                        if (PluginState.TimePlayerStopped != 0 && Game.GameTime - PluginState.TimePlayerStopped > Config.StoppedPlayerTimeoutMs)
-                        {
-                            if (PluginState.TaskedVehicles.Any() || PluginState.IntersectionTaskedVehicles.Any() || PluginState.IntersectionCreepTaskedVehicles.Any())
-                                ClearAllTrackedVehicles();
+                    var isPlayerStopped = sirenVehicle.Speed < 0.1f;
 
-                            continue;
-                        }
-
-                        if (!PluginState.IsSilentModeActive)
-                        {
-                            playerVehicle.ShouldVehiclesYieldToThisVehicle = false;
-                            PluginState.IsSilentModeActive = true;
-                        }
-
-                        IntersectionHandler.Process(playerVehicle);
-                        YieldingHandler.Process(playerVehicle);
+                    if (isPlayerStopped)
+                    {
+                        if (PluginState.TimePlayerStopped == 0) PluginState.TimePlayerStopped = Game.GameTime;
                     }
                     else
                     {
-                        if (!PluginState.IsSilentModeActive) continue;
-                        playerVehicle.ShouldVehiclesYieldToThisVehicle = true;
-                        PluginState.IsSilentModeActive = false;
                         PluginState.TimePlayerStopped = 0;
-                        ClearAllTrackedVehicles();
+                    }
+
+                    var isTimedOutForYielding = PluginState.TimePlayerStopped != 0 && Game.GameTime - PluginState.TimePlayerStopped > Config.StoppedPlayerTimeoutMs;
+
+                    if (isTimedOutForYielding)
+                    {
+                        if (PluginState.TaskedVehicles.Any() || PluginState.IntersectionTaskedVehicles.Any() || PluginState.IntersectionCreepTaskedVehicles.Any())
+                            ClearYieldAndIntersectionTasks();
+                    }
+                    else
+                    {
+                        IntersectionHandler.Process(sirenVehicle);
+                        YieldingHandler.Process(sirenVehicle);
                     }
                 }
                 else
                 {
                     if (!PluginState.IsSilentModeActive) continue;
+                    if (sirenVehicle.Exists()) sirenVehicle.ShouldVehiclesYieldToThisVehicle = true;
                     PluginState.IsSilentModeActive = false;
                     PluginState.TimePlayerStopped = 0;
                     ClearAllTrackedVehicles();
                 }
             }
+        }
+
+        private static void ClearYieldAndIntersectionTasks()
+        {
+            var vehiclesToUntask = new HashSet<Vehicle>();
+            vehiclesToUntask.UnionWith(PluginState.TaskedVehicles.Keys);
+            vehiclesToUntask.UnionWith(PluginState.IntersectionTaskedVehicles);
+            vehiclesToUntask.UnionWith(PluginState.IntersectionCreepTaskedVehicles.Keys);
+            vehiclesToUntask.UnionWith(PluginState.OncomingBrakingVehicles.Keys);
+
+            foreach (var vehicle in vehiclesToUntask)
+            {
+                if (!vehicle.Exists()) continue;
+
+                if (vehicle.Driver.Exists()) vehicle.Driver.Tasks.Clear();
+
+                if (!PluginState.TaskedVehicleBlips.TryGetValue(vehicle, out var blip)) continue;
+                if (blip.Exists()) blip.Delete();
+                PluginState.TaskedVehicleBlips.Remove(vehicle);
+            }
+
+            PluginState.TaskedVehicles.Clear();
+            PluginState.IntersectionTaskedVehicles.Clear();
+            PluginState.IntersectionCreepTaskedVehicles.Clear();
+            PluginState.OncomingBrakingVehicles.Clear();
+            PluginState.FailedCreepCandidates.Clear();
+
+            PluginState.ActiveIntersectionCenter = null;
+            PluginState.IsStopSignIntersection = false;
         }
 
         public static void ClearAllTrackedVehicles()
@@ -100,6 +131,7 @@ namespace MTFO
             allTrackedVehicles.UnionWith(PluginState.IntersectionTaskedVehicles);
             allTrackedVehicles.UnionWith(PluginState.IntersectionCreepTaskedVehicles.Keys);
             allTrackedVehicles.UnionWith(PluginState.OncomingBrakingVehicles.Keys);
+            allTrackedVehicles.UnionWith(PluginState.AroundPlayerTaskedVehicles.Keys);
 
             foreach (var vehicle in allTrackedVehicles)
             {
@@ -116,6 +148,8 @@ namespace MTFO
             PluginState.IntersectionCreepTaskedVehicles.Clear();
             PluginState.OncomingBrakingVehicles.Clear();
             PluginState.FailedCreepCandidates.Clear();
+            PluginState.AroundPlayerTaskedVehicles.Clear();
+            PluginState.FailedAroundPlayerCandidates.Clear();
 
             PluginState.ActiveIntersectionCenter = null;
             PluginState.IsStopSignIntersection = false;

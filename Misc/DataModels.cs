@@ -23,6 +23,22 @@ namespace MTFO.Misc
         public uint GameTimeStarted;
     }
 
+    internal struct AroundPlayerTask
+    {
+        public Vector3 TargetPosition;
+        public uint GameTimeStarted;
+        public uint GameTimeBackupStarted;
+    }
+
+    internal enum OvertakeFailureReason
+    {
+        SideTraceHit,
+        NoRoadFound,
+        BadHeading,
+        TargetTooFarOrHigh,
+        PathTraceHit
+    }
+
     internal static class GameModels
     {
         private static readonly uint[] TrafficLightModels =

@@ -31,6 +31,8 @@ namespace MTFO
                 Debug.DrawLine(entry.Key.Position, entry.Value.TargetPosition, lineColor);
             }
 
+            foreach (var entry in PluginState.AroundPlayerTaskedVehicles.Where(e => e.Key.Exists())) Debug.DrawLine(entry.Key.Position, entry.Value.TargetPosition, Color.Cyan);
+
             foreach (var vehicle in PluginState.OncomingBrakingVehicles.Keys.Where(v => v.Exists()))
             {
                 var start = vehicle.Position;
@@ -41,6 +43,36 @@ namespace MTFO
             foreach (var entry in PluginState.IntersectionCreepTaskedVehicles.Where(e => e.Key.Exists())) Debug.DrawLine(entry.Key.Position, entry.Value.TargetPosition, Color.Fuchsia);
 
             foreach (var entry in PluginState.FailedCreepCandidates.Where(e => e.Key.Exists())) Debug.DrawLine(entry.Key.Position, entry.Value, Color.Gray);
+
+            foreach (var entry in PluginState.FailedAroundPlayerCandidates.Where(e => e.Key.Exists()))
+            {
+                var vehicle = entry.Key;
+                var (targetPos, reason) = entry.Value;
+                Color lineColor;
+                switch (reason)
+                {
+                    case OvertakeFailureReason.SideTraceHit:
+                        lineColor = Color.Yellow;
+                        break;
+                    case OvertakeFailureReason.NoRoadFound:
+                        lineColor = Color.Orange;
+                        break;
+                    case OvertakeFailureReason.BadHeading:
+                        lineColor = Color.Pink;
+                        break;
+                    case OvertakeFailureReason.TargetTooFarOrHigh:
+                        lineColor = Color.Purple;
+                        break;
+                    case OvertakeFailureReason.PathTraceHit:
+                        lineColor = Color.Red;
+                        break;
+                    default:
+                        lineColor = Color.Gray;
+                        break;
+                }
+
+                Debug.DrawLine(vehicle.Position, targetPos, lineColor);
+            }
 
             if (PluginState.ActiveIntersectionCenter.HasValue)
             {
