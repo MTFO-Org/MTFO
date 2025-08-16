@@ -48,9 +48,16 @@ namespace MTFO.Handlers
             if (PluginState.ActiveIntersectionCenter == null) return;
             var center = PluginState.ActiveIntersectionCenter.Value;
 
+            Ped pulloverSuspect = null;
+            if (Functions.IsPlayerPerformingPullover()) pulloverSuspect = Functions.GetPulloverSuspect(Functions.GetCurrentPullover());
+
             PluginState.IntersectionTaskedVehicles.RemoveWhere(v =>
             {
-                var shouldRemove = !v.Exists() || v.Position.DistanceTo(center) > 80f;
+                var isPulloverSuspect = pulloverSuspect != null && pulloverSuspect.Exists() && v.Exists() && v.Driver.Exists() && pulloverSuspect == v.Driver;
+
+                if (isPulloverSuspect) v.Driver.Tasks.Clear();
+
+                var shouldRemove = !v.Exists() || v.Position.DistanceTo(center) > 80f || isPulloverSuspect;
                 if (!shouldRemove || !PluginState.TaskedVehicleBlips.TryGetValue(v, out var blip))
                     return shouldRemove;
                 if (blip.Exists()) blip.Delete();

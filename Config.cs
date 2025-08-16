@@ -14,7 +14,7 @@ namespace MTFO
                 iniFile = new InitializationFile(@"Plugins/LSPDFR/MTFO.ini");
                 iniFile.Create();
 
-                if (!iniFile.DoesKeyExist("Configuration", "ShowDebugLines")) iniFile.Write("Configuration", "ShowDebugLines", true);
+                if (!iniFile.DoesKeyExist("Configuration", "ShowDebugLines")) iniFile.Write("Configuration", "ShowDebugLines", false);
                 if (!iniFile.DoesKeyExist("Configuration", "EnableOpticom")) iniFile.Write("Configuration", "EnableOpticom", true);
                 if (!iniFile.DoesKeyExist("Configuration", "EnableSameSideYield")) iniFile.Write("Configuration", "EnableSameSideYield", true);
                 if (!iniFile.DoesKeyExist("Configuration", "EnableOncomingBraking")) iniFile.Write("Configuration", "EnableOncomingBraking", true);
@@ -130,7 +130,7 @@ namespace MTFO
 
         #region Configuration
 
-        public static bool ShowDebugLines = true;
+        public static bool ShowDebugLines;
 
         public static bool EnableOpticom = true;
 

@@ -24,12 +24,18 @@ namespace MTFO.Handlers
 
         private static void ManageExistingYieldingVehicles(Vehicle emergencyVehicle)
         {
+            Ped pulloverSuspect = null;
+            if (Functions.IsPlayerPerformingPullover()) pulloverSuspect = Functions.GetPulloverSuspect(Functions.GetCurrentPullover());
+
             List<Vehicle> creepersToUntask = null;
             foreach (var kvp in PluginState.IntersectionCreepTaskedVehicles)
             {
                 var vehicle = kvp.Key;
                 var task = kvp.Value;
-                var shouldUntask = !vehicle.Exists() || vehicle.Position.DistanceTo(emergencyVehicle.Position) > Config.DetectionRange + 30f || vehicle.Position.DistanceTo(task.TargetPosition) < Config.CreepTaskCompletionDistance || vehicle.Position.DistanceTo(task.TargetPosition) > Config.CreepTaskAbandonDistance || Game.GameTime - task.GameTimeStarted > Config.CreepTaskTimeoutMs;
+
+                var isPulloverTarget = pulloverSuspect != null && pulloverSuspect.Exists() && vehicle.Exists() && pulloverSuspect == vehicle.Driver;
+
+                var shouldUntask = isPulloverTarget || !vehicle.Exists() || vehicle.Position.DistanceTo(emergencyVehicle.Position) > Config.DetectionRange + 30f || vehicle.Position.DistanceTo(task.TargetPosition) < Config.CreepTaskCompletionDistance || vehicle.Position.DistanceTo(task.TargetPosition) > Config.CreepTaskAbandonDistance || Game.GameTime - task.GameTimeStarted > Config.CreepTaskTimeoutMs;
 
                 if (!shouldUntask) continue;
 
@@ -58,7 +64,9 @@ namespace MTFO.Handlers
                 var vehicle = entry.Key;
                 var timeTasked = entry.Value;
 
-                if (!vehicle.Exists() || vehicle.Position.DistanceTo(emergencyVehicle.Position) > Config.DetectionRange + 30f || Game.GameTime - timeTasked > Config.OncomingBrakeDurationMs) brakingVehiclesToUntask.Add(vehicle);
+                var isPulloverTarget = pulloverSuspect != null && pulloverSuspect.Exists() && vehicle.Exists() && pulloverSuspect == vehicle.Driver;
+
+                if (isPulloverTarget || !vehicle.Exists() || vehicle.Position.DistanceTo(emergencyVehicle.Position) > Config.DetectionRange + 30f || Game.GameTime - timeTasked > Config.OncomingBrakeDurationMs) brakingVehiclesToUntask.Add(vehicle);
             }
 
             foreach (var vehicle in brakingVehiclesToUntask)
@@ -76,6 +84,24 @@ namespace MTFO.Handlers
             {
                 var vehicle = entry.Key;
                 var task = entry.Value;
+
+                var isPulloverTarget = pulloverSuspect != null && pulloverSuspect.Exists() && vehicle.Exists() && pulloverSuspect == vehicle.Driver;
+                if (isPulloverTarget)
+                {
+                    vehiclesToUntask.Add(vehicle);
+                    continue;
+                }
+
+                var vectorToTargetFromPlayer = task.TargetPosition - emergencyVehicle.Position;
+                var forwardDistToTarget = Vector3.Dot(vectorToTargetFromPlayer, emergencyVehicle.ForwardVector);
+                var lateralDistToTarget = Vector3.Dot(vectorToTargetFromPlayer, emergencyVehicle.RightVector);
+                var unsafeLateralThreshold = emergencyVehicle.Width / 2f + 2.25f;
+
+                if (forwardDistToTarget > -5f && Math.Abs(lateralDistToTarget) < unsafeLateralThreshold)
+                {
+                    vehiclesToUntask.Add(vehicle);
+                    continue;
+                }
 
                 var shouldUntask = !vehicle.Exists() || vehicle.Position.DistanceTo(emergencyVehicle.Position) > Config.DetectionRange + 20f || vehicle.Position.DistanceTo(task.TargetPosition) < Config.SameSideYieldCompletionDistance || vehicle.Position.DistanceTo(task.TargetPosition) > Config.SameSideYieldAbandonDistance || Game.GameTime - task.GameTimeStarted > Config.SameSideYieldTimeoutMs;
 
@@ -179,7 +205,7 @@ namespace MTFO.Handlers
                 {
                     if (!TryFindValidYieldPosition(vehicle, emergencyVehicle, lateralOffset, out var finalTargetPos, out var taskType)) continue;
                     driver.Tasks.Clear();
-                    driver.Tasks.DriveToPosition(finalTargetPos, Config.DriveSpeed, VehicleDrivingFlags.Normal | VehicleDrivingFlags.StopAtDestination);
+                    driver.Tasks.DriveToPosition(finalTargetPos, Config.DriveSpeed, VehicleDrivingFlags.Normal);
                     PluginState.TaskedVehicles.Add(vehicle, new YieldTask { TargetPosition = finalTargetPos, TaskType = taskType, GameTimeStarted = Game.GameTime });
 
                     if (!Config.ShowDebugLines || PluginState.TaskedVehicleBlips.ContainsKey(vehicle)) continue;
@@ -223,7 +249,7 @@ namespace MTFO.Handlers
 
                 if (!TryFindValidCreepPosition(vehicle, emergencyVehicle, sidePushDirection.Value, assignedCreepTargetPositions, out var finalTargetPos)) continue;
                 vehicle.Driver.Tasks.Clear();
-                vehicle.Driver.Tasks.DriveToPosition(finalTargetPos, Config.IntersectionCreepDriveSpeed, VehicleDrivingFlags.Normal | VehicleDrivingFlags.StopAtDestination);
+                vehicle.Driver.Tasks.DriveToPosition(finalTargetPos, Config.IntersectionCreepDriveSpeed, VehicleDrivingFlags.Normal);
 
                 var creepTask = new CreepTask { TargetPosition = finalTargetPos, GameTimeStarted = Game.GameTime };
                 PluginState.IntersectionCreepTaskedVehicles.Add(vehicle, creepTask);
@@ -301,6 +327,17 @@ namespace MTFO.Handlers
                 if (!groundZ.HasValue) continue;
 
                 var tempTargetPos = new Vector3(rawTargetPos.X, rawTargetPos.Y, groundZ.Value);
+
+                var vectorToTargetFromPlayer = tempTargetPos - emergencyVehicle.Position;
+                var forwardDistToTarget = Vector3.Dot(vectorToTargetFromPlayer, emergencyVehicle.ForwardVector);
+                var lateralDistToTarget = Vector3.Dot(vectorToTargetFromPlayer, emergencyVehicle.RightVector);
+
+                var unsafeLateralThreshold = emergencyVehicle.Width / 2f + 2.25f;
+                if (forwardDistToTarget > -5f && Math.Abs(lateralDistToTarget) < unsafeLateralThreshold)
+                {
+                    if (Config.ShowDebugLines) PluginState.FailedCreepCandidates[vehicle] = tempTargetPos;
+                    continue;
+                }
 
                 var vehicleLateralOffset = Vector3.Dot(vehicle.Position - emergencyVehicle.Position, emergencyVehicle.RightVector);
                 var targetLateralOffset = Vector3.Dot(tempTargetPos - emergencyVehicle.Position, emergencyVehicle.RightVector);

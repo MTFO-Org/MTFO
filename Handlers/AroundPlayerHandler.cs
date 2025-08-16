@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using LSPD_First_Response.Engine.Scripting.Entities;
+using LSPD_First_Response.Mod.API;
 using MTFO.Misc;
 using Rage;
 using Rage.Native;
@@ -128,6 +129,9 @@ namespace MTFO.Handlers
             var vehiclesToUntask = new List<Vehicle>();
             var tasksToUpdate = new Dictionary<Vehicle, AroundPlayerTask>();
 
+            Ped pulloverSuspect = null;
+            if (Functions.IsPlayerPerformingPullover()) pulloverSuspect = Functions.GetPulloverSuspect(Functions.GetCurrentPullover());
+
             foreach (var entry in PluginState.AroundPlayerTaskedVehicles)
             {
                 var vehicle = entry.Key;
@@ -135,13 +139,14 @@ namespace MTFO.Handlers
 
                 if (!vehicle) continue;
 
+                var isPulloverTarget = pulloverSuspect != null && pulloverSuspect.Exists() && vehicle.Exists() && pulloverSuspect == vehicle.Driver;
                 var isTimedOut = Game.GameTime - task.GameTimeStarted > Config.AroundPlayerTaskTimeoutMs;
                 var hasCompleted = vehicle.Position.DistanceTo(task.TargetPosition) < Config.AroundPlayerTaskCompletionDistance;
                 var isTooFar = !playerEntity.Exists() || vehicle.Position.DistanceTo(playerEntity.Position) > Config.AroundPlayerDetectionRange + 40f;
                 var vectorToTaskedVeh = vehicle.Position - playerEntity.Position;
                 var hasPassedPlayer = Vector3.Dot(playerEntity.ForwardVector, vectorToTaskedVeh) > 2.0f;
 
-                if (!vehicle.Exists() || isTimedOut || hasCompleted || isTooFar || hasPassedPlayer)
+                if (isPulloverTarget || !vehicle.Exists() || isTimedOut || hasCompleted || isTooFar || hasPassedPlayer)
                 {
                     vehiclesToUntask.Add(vehicle);
                     continue;
@@ -202,8 +207,9 @@ namespace MTFO.Handlers
             if (!vehicle.Exists() || !vehicle.IsAlive || !vehicle.Driver.Exists()) return false;
 
             if (vehicle.IsPoliceVehicle || vehicle.Model.IsEmergencyVehicle)
-                if (vehicle.HasSiren)
-                    return !vehicle.IsSirenOn;
+            {
+                return false;
+            }
 
             if (PluginState.TaskedVehicles.ContainsKey(vehicle) || PluginState.IntersectionTaskedVehicles.Contains(vehicle) || PluginState.IntersectionCreepTaskedVehicles.ContainsKey(vehicle) || PluginState.OncomingBrakingVehicles.ContainsKey(vehicle) || PluginState.AroundPlayerTaskedVehicles.ContainsKey(vehicle)) return false;
 
