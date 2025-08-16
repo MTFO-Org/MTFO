@@ -205,7 +205,7 @@ namespace MTFO.Handlers
                 {
                     if (!TryFindValidYieldPosition(vehicle, emergencyVehicle, lateralOffset, out var finalTargetPos, out var taskType)) continue;
                     driver.Tasks.Clear();
-                    driver.Tasks.DriveToPosition(finalTargetPos, Config.DriveSpeed, VehicleDrivingFlags.Normal);
+                    driver.Tasks.DriveToPosition(finalTargetPos, vehicle.Speed - Config.DriveSpeed, VehicleDrivingFlags.Normal);
                     PluginState.TaskedVehicles.Add(vehicle, new YieldTask { TargetPosition = finalTargetPos, TaskType = taskType, GameTimeStarted = Game.GameTime });
 
                     if (!Config.ShowDebugLines || PluginState.TaskedVehicleBlips.ContainsKey(vehicle)) continue;
