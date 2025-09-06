@@ -23,7 +23,11 @@ namespace MTFO
                 if (!iniFile.DoesKeyExist("Configuration", "EnableAroundPlayerLogic")) iniFile.Write("Configuration", "EnableAroundPlayerLogic", false);
                 if (!iniFile.DoesKeyExist("Configuration", "AroundPlayerLogicOnlyInVehicle")) iniFile.Write("Configuration", "AroundPlayerLogicOnlyInVehicle", true);
 
-                if (!iniFile.DoesKeyExist("TuningConstants", "OpticomGreenDurationMs")) iniFile.Write("TuningConstants", "OpticomGreenDurationMs", 6000);
+                if (!iniFile.DoesKeyExist("Opticom", "OpticomGreenDurationMs")) iniFile.Write("Opticom", "OpticomGreenDurationMs", 6000);
+                if (!iniFile.DoesKeyExist("Opticom", "OpticomFlashYellowCount")) iniFile.Write("Opticom", "OpticomFlashYellowCount", 1);
+                if (!iniFile.DoesKeyExist("Opticom", "OpticomFlashYellowInterval")) iniFile.Write("Opticom", "OpticomFlashYellowInterval", 500);
+                if (!iniFile.DoesKeyExist("Opticom", "OpticomFlashYellowFirst")) iniFile.Write("Opticom", "OpticomFlashYellowFirst", false);
+
                 if (!iniFile.DoesKeyExist("TuningConstants", "StoppedPlayerTimeoutMs")) iniFile.Write("TuningConstants", "StoppedPlayerTimeoutMs", 2000);
                 if (!iniFile.DoesKeyExist("TuningConstants", "IntersectionDetectionCooldownMs")) iniFile.Write("TuningConstants", "IntersectionDetectionCooldownMs", 1300);
                 if (!iniFile.DoesKeyExist("TuningConstants", "DetectionRange")) iniFile.Write("TuningConstants", "DetectionRange", 55f);
@@ -50,7 +54,7 @@ namespace MTFO
                 if (!iniFile.DoesKeyExist("IntersectionDetection", "IntersectionSearchMinDistance")) iniFile.Write("IntersectionDetection", "IntersectionSearchMinDistance", 30f);
                 if (!iniFile.DoesKeyExist("IntersectionDetection", "IntersectionSearchMaxDistance")) iniFile.Write("IntersectionDetection", "IntersectionSearchMaxDistance", 45f);
                 if (!iniFile.DoesKeyExist("IntersectionDetection", "IntersectionSearchStepSize")) iniFile.Write("IntersectionDetection", "IntersectionSearchStepSize", 7.0f);
-                if (!iniFile.DoesKeyExist("IntersectionDetection", "IntersectionSearchRadius")) iniFile.Write("IntersectionDetection", "IntersectionSearchRadius", 40.0f);
+                if (!iniFile.DoesKeyExist("IntersectionDetection", "IntersectionSearchRadius")) iniFile.Write("IntersectionDetection", "IntersectionSearchRadius", 45.0f);
                 if (!iniFile.DoesKeyExist("IntersectionDetection", "IntersectionHeadingThreshold")) iniFile.Write("IntersectionDetection", "IntersectionHeadingThreshold", 40.0f);
                 if (!iniFile.DoesKeyExist("IntersectionDetection", "CrossTrafficHeadingDotThreshold")) iniFile.Write("IntersectionDetection", "CrossTrafficHeadingDotThreshold", 0.25f);
 
@@ -77,7 +81,11 @@ namespace MTFO
                 EnableAroundPlayerLogic = iniFile.ReadBoolean("Configuration", "EnableAroundPlayerLogic", EnableAroundPlayerLogic);
                 AroundPlayerLogicOnlyInVehicle = iniFile.ReadBoolean("Configuration", "AroundPlayerLogicOnlyInVehicle", AroundPlayerLogicOnlyInVehicle);
 
-                OpticomGreenDurationMs = iniFile.ReadInt32("TuningConstants", "OpticomGreenDurationMs", OpticomGreenDurationMs);
+                OpticomGreenDurationMs = iniFile.ReadInt32("Opticom", "OpticomGreenDurationMs", OpticomGreenDurationMs);
+                OpticomFlashYellowInterval = iniFile.ReadInt32("Opticom", "OpticomFlashYellowInterval", OpticomFlashYellowInterval);
+                OpticomFlashYellowCount = iniFile.ReadInt32("Opticom", "OpticomFlashYellowCount", OpticomFlashYellowCount);
+                OpticomFlashYellowFirst = iniFile.ReadBoolean("Opticom", "OpticomFlashYellowFirst", OpticomFlashYellowFirst);
+
                 StoppedPlayerTimeoutMs = iniFile.ReadUInt32("TuningConstants", "StoppedPlayerTimeoutMs", StoppedPlayerTimeoutMs);
                 IntersectionDetectionCooldownMs = iniFile.ReadUInt32("TuningConstants", "IntersectionDetectionCooldownMs", IntersectionDetectionCooldownMs);
                 DetectionRange = iniFile.ReadSingle("TuningConstants", "DetectionRange", DetectionRange);
@@ -168,6 +176,12 @@ namespace MTFO
 
         public static int OpticomGreenDurationMs = 6000;
 
+        public static int OpticomFlashYellowCount = 1;
+
+        public static int OpticomFlashYellowInterval = 500;
+
+        public static bool OpticomFlashYellowFirst;
+
         public static uint StoppedPlayerTimeoutMs = 2000;
 
         public static uint IntersectionDetectionCooldownMs = 1300;
@@ -228,7 +242,7 @@ namespace MTFO
 
         public static float IntersectionSearchStepSize = 7.0f;
 
-        public static float IntersectionSearchRadius = 40.0f;
+        public static float IntersectionSearchRadius = 45.0f;
 
         public static float IntersectionHeadingThreshold = 40.0f;
 

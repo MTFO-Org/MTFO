@@ -15,9 +15,26 @@ namespace MTFO.Handlers
         {
             GameFiber.StartNew(() =>
             {
-                NativeFunction.Natives.SET_ENTITY_TRAFFICLIGHT_OVERRIDE(trafficLight, 0);
+                const int greenState = 0;
+                const int resetState = 3;
+                const int yellowState = 2;
+                const int redState = 1;
+
+                if (Config.OpticomFlashYellowFirst)
+                {
+                    var count = Config.OpticomFlashYellowCount;
+                    for (var i = 0; i < count; i++)
+                    {
+                        NativeFunction.Natives.SET_ENTITY_TRAFFICLIGHT_OVERRIDE(trafficLight, yellowState);
+                        GameFiber.Wait(Config.OpticomFlashYellowInterval);
+                        NativeFunction.Natives.SET_ENTITY_TRAFFICLIGHT_OVERRIDE(trafficLight, redState);
+                        GameFiber.Wait(Config.OpticomFlashYellowInterval);
+                    }
+                }
+
+                NativeFunction.Natives.SET_ENTITY_TRAFFICLIGHT_OVERRIDE(trafficLight, greenState);
                 GameFiber.Wait(Config.OpticomGreenDurationMs);
-                NativeFunction.Natives.SET_ENTITY_TRAFFICLIGHT_OVERRIDE(trafficLight, 3);
+                NativeFunction.Natives.SET_ENTITY_TRAFFICLIGHT_OVERRIDE(trafficLight, resetState);
             });
         }
 
