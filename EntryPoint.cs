@@ -54,9 +54,10 @@ namespace MTFO
                     AroundPlayerHandler.Process(sirenVehicle);
 
                     if (!currentVehicle.Exists() || currentVehicle != sirenVehicle) continue;
+
+                    sirenVehicle.ShouldVehiclesYieldToThisVehicle = false;
                     if (!PluginState.IsSilentModeActive)
                     {
-                        sirenVehicle.ShouldVehiclesYieldToThisVehicle = false;
                         PluginState.IsSilentModeActive = true;
                     }
 

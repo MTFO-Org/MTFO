@@ -40,6 +40,7 @@ namespace MTFO
                 if (!iniFile.DoesKeyExist("Same-sideYieldParams", "SameSideYieldCompletionDistance")) iniFile.Write("Same-sideYieldParams", "SameSideYieldCompletionDistance", 3.0f);
                 if (!iniFile.DoesKeyExist("Same-sideYieldParams", "SameSideYieldAbandonDistance")) iniFile.Write("Same-sideYieldParams", "SameSideYieldAbandonDistance", 45.0f);
                 if (!iniFile.DoesKeyExist("Same-sideYieldParams", "SameSideYieldTimeoutMs")) iniFile.Write("Same-sideYieldParams", "SameSideYieldTimeoutMs", 3000);
+                if (!iniFile.DoesKeyExist("Same-sideYieldParams", "SameSideYieldWaitDurationMs")) iniFile.Write("Same-sideYieldParams", "SameSideYieldWaitDurationMs", 150);
 
                 if (!iniFile.DoesKeyExist("OncomingTraffic", "OncomingBrakeHeadingDot")) iniFile.Write("OncomingTraffic", "OncomingBrakeHeadingDot", -0.7f);
                 if (!iniFile.DoesKeyExist("OncomingTraffic", "OncomingBrakeMinLateral")) iniFile.Write("OncomingTraffic", "OncomingBrakeMinLateral", -19.0f);
@@ -93,6 +94,7 @@ namespace MTFO
                 SameSideYieldCompletionDistance = iniFile.ReadSingle("Same-sideYieldParams", "SameSideYieldCompletionDistance", SameSideYieldCompletionDistance);
                 SameSideYieldAbandonDistance = iniFile.ReadSingle("Same-sideYieldParams", "SameSideYieldAbandonDistance", SameSideYieldAbandonDistance);
                 SameSideYieldTimeoutMs = iniFile.ReadUInt32("Same-sideYieldParams", "SameSideYieldTimeoutMs", SameSideYieldTimeoutMs);
+                SameSideYieldWaitDurationMs = iniFile.ReadUInt32("Same-sideYieldParams", "SameSideYieldWaitDurationMs", SameSideYieldWaitDurationMs);
 
                 OncomingBrakeHeadingDot = iniFile.ReadSingle("OncomingTraffic", "OncomingBrakeHeadingDot", OncomingBrakeHeadingDot);
                 OncomingBrakeMinLateral = iniFile.ReadSingle("OncomingTraffic", "OncomingBrakeMinLateral", OncomingBrakeMinLateral);
@@ -201,6 +203,8 @@ namespace MTFO
         public static float SameSideYieldAbandonDistance = 45.0f;
 
         public static uint SameSideYieldTimeoutMs = 3000;
+
+        public static uint SameSideYieldWaitDurationMs = 150;
 
         #endregion
 

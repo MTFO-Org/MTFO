@@ -15,6 +15,7 @@ namespace MTFO.Misc
         public Vector3 TargetPosition;
         public YieldTaskType TaskType;
         public uint GameTimeStarted;
+        public bool IsWaiting;
     }
 
     internal struct CreepTask
