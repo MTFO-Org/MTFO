@@ -134,7 +134,7 @@ namespace MTFO
             {
                 var error = e.ToString();
                 Game.LogTrivial("MTFO: ERROR IN 'Config.cs, Initialize()': " + error);
-                Game.DisplayNotification("MTFO: Error Occured");
+                Game.DisplayNotification("MTFO: Config Error Occured");
             }
         }
 

@@ -35,6 +35,7 @@ namespace MTFO
             PluginState.PluginFiber.Start();
             if (Config.ShowDebugLines) Game.FrameRender += DebugDisplay.OnFrameRender;
             Game.DisplayNotification("~g~MTFO ~w~by ~y~Guess1m/Rohan ~w~loaded successfully.");
+            Game.LogTrivial("MTFO by Guess1m/Rohan loaded successfully.");
         }
 
         private static void PluginLogic()
