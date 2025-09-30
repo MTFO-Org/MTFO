@@ -32,6 +32,9 @@
         <WarningLevel>4</WarningLevel>
     </PropertyGroup>
     <ItemGroup>
+        <Reference Include="INIUtility">
+            <HintPath>..\INIUtility\bin\Debug\INIUtility.dll</HintPath>
+        </Reference>
         <Reference Include="LSPD First Response">
             <HintPath>..\Documents\LSPDFR\Dev\LSPD First Response.dll</HintPath>
         </Reference>

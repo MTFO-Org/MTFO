@@ -186,7 +186,6 @@ namespace MTFO.Handlers
 
             var vehiclesToUntask = new List<Vehicle>();
             var brakingVehiclesToUntask = new List<Vehicle>();
-            var tasksToUpdate = new Dictionary<Vehicle, YieldTask>();
 
             foreach (var entry in PluginState.OncomingBrakingVehicles)
             {
@@ -228,20 +227,11 @@ namespace MTFO.Handlers
                     continue;
                 }
 
-                if (!task.IsWaiting && vehicle.Position.DistanceTo(task.TargetPosition) < Config.SameSideYieldCompletionDistance)
-                {
-                    vehicle.Driver.Tasks.PerformDrivingManeuver(vehicle, VehicleManeuver.Wait, (int)Config.SameSideYieldWaitDurationMs);
-                    var updatedTask = task;
-                    updatedTask.IsWaiting = true;
-                    updatedTask.GameTimeStarted = Game.GameTime;
-                    tasksToUpdate[vehicle] = updatedTask;
-                    continue;
-                }
-
-                var hasTimedOut = Game.GameTime - task.GameTimeStarted > (task.IsWaiting ? Config.SameSideYieldWaitDurationMs : Config.SameSideYieldTimeoutMs);
+                var hasTimedOut = Game.GameTime - task.GameTimeStarted > Config.SameSideYieldTimeoutMs;
                 var vectorToTarget = task.TargetPosition - vehicle.Position;
                 var hasPassedTarget = Vector3.Dot(vehicle.ForwardVector, vectorToTarget) < 0f && vehicle.Speed > 1f;
-                var shouldUntask = !vehicle.Exists() || vehicle.Position.DistanceTo(emergencyVehicle.Position) > Config.DetectionRange + 20f || vehicle.Position.DistanceTo(task.TargetPosition) > Config.SameSideYieldAbandonDistance || hasTimedOut || hasPassedTarget;
+                var hasCompleted = vehicle.Position.DistanceTo(task.TargetPosition) < Config.SameSideYieldCompletionDistance;
+                var shouldUntask = !vehicle.Exists() || vehicle.Position.DistanceTo(emergencyVehicle.Position) > Config.DetectionRange + 20f || vehicle.Position.DistanceTo(task.TargetPosition) > Config.SameSideYieldAbandonDistance || hasTimedOut || hasPassedTarget || hasCompleted;
 
                 if (shouldUntask)
                 {
@@ -263,9 +253,6 @@ namespace MTFO.Handlers
                         throw new ArgumentOutOfRangeException();
                 }
             }
-
-            foreach (var entry in tasksToUpdate.Where(entry => PluginState.TaskedVehicles.ContainsKey(entry.Key)))
-                PluginState.TaskedVehicles[entry.Key] = entry.Value;
 
             foreach (var vehicle in vehiclesToUntask)
             {
@@ -353,7 +340,7 @@ namespace MTFO.Handlers
                 {
                     if (!TryFindValidYieldPosition(vehicle, emergencyVehicle, lateralOffset, out var finalTargetPos, out var taskType)) continue;
                     driver.Tasks.DriveToPosition(finalTargetPos, Config.DriveSpeed, VehicleDrivingFlags.Normal);
-                    PluginState.TaskedVehicles.Add(vehicle, new YieldTask { TargetPosition = finalTargetPos, TaskType = taskType, GameTimeStarted = Game.GameTime, IsWaiting = false });
+                    PluginState.TaskedVehicles.Add(vehicle, new YieldTask { TargetPosition = finalTargetPos, TaskType = taskType, GameTimeStarted = Game.GameTime });
 
                     if (!Config.ShowDebugLines || PluginState.TaskedVehicleBlips.ContainsKey(vehicle)) continue;
                     var blip = vehicle.AttachBlip();

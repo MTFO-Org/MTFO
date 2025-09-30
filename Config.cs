@@ -26,13 +26,13 @@ namespace MTFO
                 if (!iniFile.DoesKeyExist("Opticom", "OpticomGreenDurationMs")) iniFile.Write("Opticom", "OpticomGreenDurationMs", 6000);
                 if (!iniFile.DoesKeyExist("Opticom", "OpticomFlashYellowCount")) iniFile.Write("Opticom", "OpticomFlashYellowCount", 1);
                 if (!iniFile.DoesKeyExist("Opticom", "OpticomFlashYellowInterval")) iniFile.Write("Opticom", "OpticomFlashYellowInterval", 500);
-                if (!iniFile.DoesKeyExist("Opticom", "OpticomFlashYellowFirst")) iniFile.Write("Opticom", "OpticomFlashYellowFirst", false);
+                if (!iniFile.DoesKeyExist("Opticom", "OpticomFlashYellowFirst")) iniFile.Write("Opticom", "OpticomFlashYellowFirst", true);
 
                 if (!iniFile.DoesKeyExist("TuningConstants", "StoppedPlayerTimeoutMs")) iniFile.Write("TuningConstants", "StoppedPlayerTimeoutMs", 2000);
                 if (!iniFile.DoesKeyExist("TuningConstants", "IntersectionDetectionCooldownMs")) iniFile.Write("TuningConstants", "IntersectionDetectionCooldownMs", 1300);
-                if (!iniFile.DoesKeyExist("TuningConstants", "DetectionRange")) iniFile.Write("TuningConstants", "DetectionRange", 55f);
+                if (!iniFile.DoesKeyExist("TuningConstants", "DetectionRange")) iniFile.Write("TuningConstants", "DetectionRange", 40f);
                 if (!iniFile.DoesKeyExist("TuningConstants", "DetectionStartWidth")) iniFile.Write("TuningConstants", "DetectionStartWidth", 3.5f);
-                if (!iniFile.DoesKeyExist("TuningConstants", "DetectionEndWidth")) iniFile.Write("TuningConstants", "DetectionEndWidth", 6.25f);
+                if (!iniFile.DoesKeyExist("TuningConstants", "DetectionEndWidth")) iniFile.Write("TuningConstants", "DetectionEndWidth", 5f);
                 if (!iniFile.DoesKeyExist("TuningConstants", "DetectionHeightOffset")) iniFile.Write("TuningConstants", "DetectionHeightOffset", -1f);
                 if (!iniFile.DoesKeyExist("TuningConstants", "DetectionAreaHeight")) iniFile.Write("TuningConstants", "DetectionAreaHeight", 12.0f);
 
@@ -102,7 +102,6 @@ namespace MTFO
                 SameSideYieldCompletionDistance = iniFile.ReadSingle("Same-sideYieldParams", "SameSideYieldCompletionDistance", SameSideYieldCompletionDistance);
                 SameSideYieldAbandonDistance = iniFile.ReadSingle("Same-sideYieldParams", "SameSideYieldAbandonDistance", SameSideYieldAbandonDistance);
                 SameSideYieldTimeoutMs = iniFile.ReadUInt32("Same-sideYieldParams", "SameSideYieldTimeoutMs", SameSideYieldTimeoutMs);
-                SameSideYieldWaitDurationMs = iniFile.ReadUInt32("Same-sideYieldParams", "SameSideYieldWaitDurationMs", SameSideYieldWaitDurationMs);
 
                 OncomingBrakeHeadingDot = iniFile.ReadSingle("OncomingTraffic", "OncomingBrakeHeadingDot", OncomingBrakeHeadingDot);
                 OncomingBrakeMinLateral = iniFile.ReadSingle("OncomingTraffic", "OncomingBrakeMinLateral", OncomingBrakeMinLateral);
@@ -180,17 +179,17 @@ namespace MTFO
 
         public static int OpticomFlashYellowInterval = 500;
 
-        public static bool OpticomFlashYellowFirst;
+        public static bool OpticomFlashYellowFirst = true;
 
         public static uint StoppedPlayerTimeoutMs = 2000;
 
         public static uint IntersectionDetectionCooldownMs = 1300;
 
-        public static float DetectionRange = 55f;
+        public static float DetectionRange = 40f;
 
         public static float DetectionStartWidth = 3.5f;
 
-        public static float DetectionEndWidth = 6.25f;
+        public static float DetectionEndWidth = 5f;
 
         public static float DetectionHeightOffset = -1f;
 
@@ -217,8 +216,6 @@ namespace MTFO
         public static float SameSideYieldAbandonDistance = 45.0f;
 
         public static uint SameSideYieldTimeoutMs = 3000;
-
-        public static uint SameSideYieldWaitDurationMs = 150;
 
         #endregion
 
