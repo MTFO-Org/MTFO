@@ -12,7 +12,7 @@ namespace MTFO
         public static void OnFrameRender(object sender, GraphicsEventArgs e2)
         {
             var playerVehicle = Game.LocalPlayer.Character.CurrentVehicle;
-            if (!Config.ShowDebugLines) return;
+            if (!MtfoSettings.ShowDebugLines) return;
             if (!playerVehicle.Exists()) return;
             if (Functions.IsPlayerPerformingPullover()) return;
 
@@ -88,18 +88,18 @@ namespace MTFO
             var right = playerVehicle.RightVector;
             var vizColor = Color.Aqua;
 
-            var centerOffset = new Vector3(0, 0, Config.DetectionHeightOffset);
-            var halfHeight = new Vector3(0, 0, Config.DetectionAreaHeight / 2.0f);
+            var centerOffset = new Vector3(0, 0, MtfoSettings.DetectionHeightOffset);
+            var halfHeight = new Vector3(0, 0, MtfoSettings.DetectionAreaHeight / 2.0f);
 
-            var botBackLeft = pos - right * Config.DetectionStartWidth + centerOffset - halfHeight;
-            var botBackRight = pos + right * Config.DetectionStartWidth + centerOffset - halfHeight;
-            var botFrontLeft = pos + forward * Config.DetectionRange - right * Config.DetectionEndWidth + centerOffset - halfHeight;
-            var botFrontRight = pos + forward * Config.DetectionRange + right * Config.DetectionEndWidth + centerOffset - halfHeight;
+            var botBackLeft = pos - right * MtfoSettings.DetectionStartWidth + centerOffset - halfHeight;
+            var botBackRight = pos + right * MtfoSettings.DetectionStartWidth + centerOffset - halfHeight;
+            var botFrontLeft = pos + forward * MtfoSettings.DetectionRange - right * MtfoSettings.DetectionEndWidth + centerOffset - halfHeight;
+            var botFrontRight = pos + forward * MtfoSettings.DetectionRange + right * MtfoSettings.DetectionEndWidth + centerOffset - halfHeight;
 
-            var topBackLeft = pos - right * Config.DetectionStartWidth + centerOffset + halfHeight;
-            var topBackRight = pos + right * Config.DetectionStartWidth + centerOffset + halfHeight;
-            var topFrontLeft = pos + forward * Config.DetectionRange - right * Config.DetectionEndWidth + centerOffset + halfHeight;
-            var topFrontRight = pos + forward * Config.DetectionRange + right * Config.DetectionEndWidth + centerOffset + halfHeight;
+            var topBackLeft = pos - right * MtfoSettings.DetectionStartWidth + centerOffset + halfHeight;
+            var topBackRight = pos + right * MtfoSettings.DetectionStartWidth + centerOffset + halfHeight;
+            var topFrontLeft = pos + forward * MtfoSettings.DetectionRange - right * MtfoSettings.DetectionEndWidth + centerOffset + halfHeight;
+            var topFrontRight = pos + forward * MtfoSettings.DetectionRange + right * MtfoSettings.DetectionEndWidth + centerOffset + halfHeight;
 
             Debug.DrawLine(botBackLeft, botBackRight, vizColor);
             Debug.DrawLine(botBackRight, botFrontRight, vizColor);

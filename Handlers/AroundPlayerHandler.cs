@@ -14,9 +14,9 @@ namespace MTFO.Handlers
     {
         public static void Process(Entity playerEntity)
         {
-            if (!Config.EnableAroundPlayerLogic) return;
+            if (!MtfoSettings.EnableAroundPlayerLogic) return;
 
-            if (Config.AroundPlayerLogicOnlyInVehicle && !(playerEntity is Vehicle))
+            if (MtfoSettings.AroundPlayerLogicOnlyInVehicle && !(playerEntity is Vehicle))
             {
                 if (PluginState.AroundPlayerTaskedVehicles.Any()) ClearAroundPlayerTasks();
 
@@ -61,7 +61,7 @@ namespace MTFO.Handlers
                     continue;
                 }
 
-                var rawTargetPoint = playerEntity.Position + playerEntity.ForwardVector * Config.AroundPlayerOvertakeDistance + direction * laneOffset;
+                var rawTargetPoint = playerEntity.Position + playerEntity.ForwardVector * MtfoSettings.AroundPlayerOvertakeDistance + direction * laneOffset;
 
                 if (!NativeFunction.Natives.GET_CLOSEST_ROAD<bool>(rawTargetPoint, 1.0f, 1, out Vector3 nodeA, out Vector3 nodeB, out int _, out int _, out float _, false))
                 {
@@ -119,7 +119,7 @@ namespace MTFO.Handlers
                 return true;
             }
 
-            if (Config.ShowDebugLines && bestFailure.HasValue) PluginState.FailedAroundPlayerCandidates[vehicleToTask] = bestFailure.Value;
+            if (MtfoSettings.ShowDebugLines && bestFailure.HasValue) PluginState.FailedAroundPlayerCandidates[vehicleToTask] = bestFailure.Value;
 
             return false;
         }
@@ -140,9 +140,9 @@ namespace MTFO.Handlers
                 if (!vehicle) continue;
 
                 var isPulloverTarget = pulloverSuspect != null && pulloverSuspect.Exists() && vehicle.Exists() && pulloverSuspect == vehicle.Driver;
-                var isTimedOut = Game.GameTime - task.GameTimeStarted > Config.AroundPlayerTaskTimeoutMs;
-                var hasCompleted = vehicle.Position.DistanceTo(task.TargetPosition) < Config.AroundPlayerTaskCompletionDistance;
-                var isTooFar = !playerEntity.Exists() || vehicle.Position.DistanceTo(playerEntity.Position) > Config.AroundPlayerDetectionRange + 40f;
+                var isTimedOut = Game.GameTime - task.GameTimeStarted > MtfoSettings.AroundPlayerTaskTimeoutMs;
+                var hasCompleted = vehicle.Position.DistanceTo(task.TargetPosition) < MtfoSettings.AroundPlayerTaskCompletionDistance;
+                var isTooFar = !playerEntity.Exists() || vehicle.Position.DistanceTo(playerEntity.Position) > MtfoSettings.AroundPlayerDetectionRange + 40f;
                 var vectorToTaskedVeh = vehicle.Position - playerEntity.Position;
                 var hasPassedPlayer = Vector3.Dot(playerEntity.ForwardVector, vectorToTaskedVeh) > 2.0f;
 
@@ -190,9 +190,9 @@ namespace MTFO.Handlers
 
         private static void FindAndTaskNewVehicles(Entity playerEntity)
         {
-            if (Config.ShowDebugLines) PluginState.FailedAroundPlayerCandidates.Clear();
+            if (MtfoSettings.ShowDebugLines) PluginState.FailedAroundPlayerCandidates.Clear();
 
-            var nearbyVehicles = World.GetEntities(playerEntity.Position, Config.AroundPlayerDetectionRange + 5f, GetEntitiesFlags.ConsiderAllVehicles | GetEntitiesFlags.ExcludePlayerVehicle).OfType<Vehicle>();
+            var nearbyVehicles = World.GetEntities(playerEntity.Position, MtfoSettings.AroundPlayerDetectionRange + 5f, GetEntitiesFlags.ConsiderAllVehicles | GetEntitiesFlags.ExcludePlayerVehicle).OfType<Vehicle>();
 
             foreach (var vehicle in nearbyVehicles)
             {
@@ -214,10 +214,10 @@ namespace MTFO.Handlers
             if (Vector3.Dot(playerEntity.ForwardVector, vectorToVehicle) > 0f) return false;
 
             var backwardDistance = Vector3.Dot(playerEntity.ForwardVector, vectorToVehicle) * -1;
-            if (backwardDistance > Config.AroundPlayerDetectionRange || backwardDistance < 1f) return false;
+            if (backwardDistance > MtfoSettings.AroundPlayerDetectionRange || backwardDistance < 1f) return false;
 
             var lateralDistance = Math.Abs(Vector3.Dot(playerEntity.RightVector, vectorToVehicle));
-            if (lateralDistance > Config.AroundPlayerDetectionWidth / 2f) return false;
+            if (lateralDistance > MtfoSettings.AroundPlayerDetectionWidth / 2f) return false;
 
             return !(vehicle.Speed > 4f) && !(Vector3.Dot(playerEntity.ForwardVector, vehicle.ForwardVector) < 0.8f);
         }
@@ -234,7 +234,7 @@ namespace MTFO.Handlers
                 GameTimeBackupStarted = 0
             });
 
-            if (!Config.ShowDebugLines || PluginState.TaskedVehicleBlips.ContainsKey(vehicle)) return;
+            if (!MtfoSettings.ShowDebugLines || PluginState.TaskedVehicleBlips.ContainsKey(vehicle)) return;
             var blip = vehicle.AttachBlip();
             blip.Color = Color.Cyan;
             PluginState.TaskedVehicleBlips.Add(vehicle, blip);

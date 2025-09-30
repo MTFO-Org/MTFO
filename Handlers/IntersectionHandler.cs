@@ -20,27 +20,27 @@ namespace MTFO.Handlers
                 const int yellowState = 2;
                 const int redState = 1;
 
-                if (Config.OpticomFlashYellowFirst)
+                if (MtfoSettings.OpticomFlashYellowFirst)
                 {
-                    var count = Config.OpticomFlashYellowCount;
+                    var count = MtfoSettings.OpticomFlashYellowCount;
                     for (var i = 0; i < count; i++)
                     {
                         NativeFunction.Natives.SET_ENTITY_TRAFFICLIGHT_OVERRIDE(trafficLight, yellowState);
-                        GameFiber.Wait(Config.OpticomFlashYellowInterval);
+                        GameFiber.Wait(MtfoSettings.OpticomFlashYellowInterval);
                         NativeFunction.Natives.SET_ENTITY_TRAFFICLIGHT_OVERRIDE(trafficLight, redState);
-                        GameFiber.Wait(Config.OpticomFlashYellowInterval);
+                        GameFiber.Wait(MtfoSettings.OpticomFlashYellowInterval);
                     }
                 }
 
                 NativeFunction.Natives.SET_ENTITY_TRAFFICLIGHT_OVERRIDE(trafficLight, greenState);
-                GameFiber.Wait(Config.OpticomGreenDurationMs);
+                GameFiber.Wait(MtfoSettings.OpticomGreenDurationMs);
                 NativeFunction.Natives.SET_ENTITY_TRAFFICLIGHT_OVERRIDE(trafficLight, resetState);
             });
         }
 
         public static void Process(Vehicle emergencyVehicle)
         {
-            if (!Config.EnableIntersectionControl) return;
+            if (!MtfoSettings.EnableIntersectionControl) return;
 
             if (PluginState.ActiveIntersectionCenter.HasValue)
             {
@@ -92,7 +92,7 @@ namespace MTFO.Handlers
             var dotPlayerToCenter = Vector3.Dot(emergencyVehicle.ForwardVector, vectorToIntersection);
 
             var isPastIntersection = dotPlayerToCenter < -10f;
-            var isTooFarAway = vectorToIntersection.Length() > Config.IntersectionSearchMaxDistance + 20f;
+            var isTooFarAway = vectorToIntersection.Length() > MtfoSettings.IntersectionSearchMaxDistance + 20f;
 
             if (!isPastIntersection && !isTooFarAway) return false;
             EntryPoint.ClearAllTrackedVehicles();
@@ -102,29 +102,29 @@ namespace MTFO.Handlers
 
         private static void DetectNewIntersection(Vehicle emergencyVehicle)
         {
-            if (Game.GameTime - PluginState.IntersectionClearTime < Config.IntersectionDetectionCooldownMs) return;
+            if (Game.GameTime - PluginState.IntersectionClearTime < MtfoSettings.IntersectionDetectionCooldownMs) return;
 
             Object foundObject = null;
             var allIntersectionModels = GameModels.AllIntersectionModels;
 
-            for (var searchDistance = Config.IntersectionSearchMaxDistance; searchDistance > Config.IntersectionSearchMinDistance; searchDistance -= Config.IntersectionSearchStepSize)
+            for (var searchDistance = MtfoSettings.IntersectionSearchMaxDistance; searchDistance > MtfoSettings.IntersectionSearchMinDistance; searchDistance -= MtfoSettings.IntersectionSearchStepSize)
             {
                 var searchPosition = emergencyVehicle.Position + emergencyVehicle.ForwardVector * searchDistance;
                 foreach (var modelHash in allIntersectionModels)
                 {
-                    foundObject = NativeFunction.Natives.GET_CLOSEST_OBJECT_OF_TYPE<Object>(searchPosition, Config.IntersectionSearchRadius, modelHash, false, false, false);
+                    foundObject = NativeFunction.Natives.GET_CLOSEST_OBJECT_OF_TYPE<Object>(searchPosition, MtfoSettings.IntersectionSearchRadius, modelHash, false, false, false);
                     if (foundObject == null) continue;
 
                     var isHeadingValid = false;
                     var headingDiff = Math.Abs(emergencyVehicle.Heading - foundObject.Heading);
-                    if (headingDiff < Config.IntersectionHeadingThreshold || headingDiff > 360 - Config.IntersectionHeadingThreshold)
+                    if (headingDiff < MtfoSettings.IntersectionHeadingThreshold || headingDiff > 360 - MtfoSettings.IntersectionHeadingThreshold)
                         isHeadingValid = true;
                     if (isHeadingValid) break;
                     foundObject = null;
                 }
 
                 if (foundObject == null) continue;
-                if (foundObject.Position.DistanceTo(emergencyVehicle.Position) > Config.IntersectionSearchMaxDistance + 5f)
+                if (foundObject.Position.DistanceTo(emergencyVehicle.Position) > MtfoSettings.IntersectionSearchMaxDistance + 5f)
                 {
                     foundObject = null;
                     continue;
@@ -149,7 +149,7 @@ namespace MTFO.Handlers
             else
             {
                 PluginState.ActiveIntersectionCenter = foundObject.Position;
-                if (Config.EnableOpticom) SetTrafficLightGreen(foundObject);
+                if (MtfoSettings.EnableOpticom) SetTrafficLightGreen(foundObject);
             }
         }
 
@@ -158,7 +158,7 @@ namespace MTFO.Handlers
             if (PluginState.ActiveIntersectionCenter == null) return;
             var intersectionCenter = PluginState.ActiveIntersectionCenter.Value;
 
-            if (Config.ShowDebugLines) PluginState.FailedCreepCandidates.Clear();
+            if (MtfoSettings.ShowDebugLines) PluginState.FailedCreepCandidates.Clear();
 
             var nearbyEntities = World.GetEntities(intersectionCenter, 60f, GetEntitiesFlags.ConsiderAllVehicles | GetEntitiesFlags.ExcludePlayerVehicle);
 
@@ -176,7 +176,7 @@ namespace MTFO.Handlers
                 }
                 else
                 {
-                    if (Math.Abs(headingDot) < Config.CrossTrafficHeadingDotThreshold) isPotentialTarget = true;
+                    if (Math.Abs(headingDot) < MtfoSettings.CrossTrafficHeadingDotThreshold) isPotentialTarget = true;
                 }
 
                 if (!isPotentialTarget) continue;
@@ -200,7 +200,7 @@ namespace MTFO.Handlers
                 vehicleDriver.Tasks.PerformDrivingManeuver(vehicle, VehicleManeuver.GoForwardStraightBraking, 2000);
                 PluginState.IntersectionTaskedVehicles.Add(vehicle);
 
-                if (!Config.ShowDebugLines || PluginState.TaskedVehicleBlips.ContainsKey(vehicle)) continue;
+                if (!MtfoSettings.ShowDebugLines || PluginState.TaskedVehicleBlips.ContainsKey(vehicle)) continue;
                 var blip = vehicle.AttachBlip();
                 blip.Color = Color.Blue;
                 PluginState.TaskedVehicleBlips.Add(vehicle, blip);

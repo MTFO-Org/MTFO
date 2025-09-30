@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using INIUtility;
 using LSPD_First_Response.Mod.API;
 using MTFO.Handlers;
 using MTFO.Misc;
@@ -9,6 +10,8 @@ namespace MTFO
 {
     public class EntryPoint : Plugin
     {
+        private static MtfoSettings Settings { get; set; }
+
         public override void Initialize()
         {
             Functions.OnOnDutyStateChanged += LSPDFRFunctions_OnOnDutyStateChanged;
@@ -17,13 +20,13 @@ namespace MTFO
         private void LSPDFRFunctions_OnOnDutyStateChanged(bool onduty)
         {
             if (!onduty) return;
-            Config.Initialize();
+            Settings = ConfigLoader.LoadSettings<MtfoSettings>("plugins/LSPDFR/MTFO.ini");
             Main();
         }
 
         public override void Finally()
         {
-            Game.FrameRender -= DebugDisplay.OnFrameRender;
+            if (MtfoSettings.ShowDebugLines) Game.FrameRender -= DebugDisplay.OnFrameRender;
             ClearAllTrackedVehicles();
 
             if (PluginState.PluginFiber.IsAlive) PluginState.PluginFiber.Abort();
@@ -33,7 +36,7 @@ namespace MTFO
         {
             PluginState.PluginFiber = new GameFiber(PluginLogic);
             PluginState.PluginFiber.Start();
-            if (Config.ShowDebugLines) Game.FrameRender += DebugDisplay.OnFrameRender;
+            if (MtfoSettings.ShowDebugLines) Game.FrameRender += DebugDisplay.OnFrameRender;
             Game.DisplayNotification("~g~MTFO ~w~by ~y~Guess1m/Rohan ~w~loaded successfully.");
         }
 
@@ -69,7 +72,7 @@ namespace MTFO
                         PluginState.TimePlayerStopped = 0;
                     }
 
-                    var isTimedOutForYielding = PluginState.TimePlayerStopped != 0 && Game.GameTime - PluginState.TimePlayerStopped > Config.StoppedPlayerTimeoutMs;
+                    var isTimedOutForYielding = PluginState.TimePlayerStopped != 0 && Game.GameTime - PluginState.TimePlayerStopped > MtfoSettings.StoppedPlayerTimeoutMs;
 
                     if (isTimedOutForYielding)
                     {
