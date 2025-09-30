@@ -56,10 +56,7 @@ namespace MTFO
                     if (!currentVehicle.Exists() || currentVehicle != sirenVehicle) continue;
 
                     sirenVehicle.ShouldVehiclesYieldToThisVehicle = false;
-                    if (!PluginState.IsSilentModeActive)
-                    {
-                        PluginState.IsSilentModeActive = true;
-                    }
+                    if (!PluginState.IsSilentModeActive) PluginState.IsSilentModeActive = true;
 
                     var isPlayerStopped = sirenVehicle.Speed < 0.1f;
 

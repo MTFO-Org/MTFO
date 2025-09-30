@@ -206,10 +206,7 @@ namespace MTFO.Handlers
         {
             if (!vehicle.Exists() || !vehicle.IsAlive || !vehicle.Driver.Exists()) return false;
 
-            if (vehicle.IsPoliceVehicle || vehicle.Model.IsEmergencyVehicle)
-            {
-                return false;
-            }
+            if (vehicle.IsPoliceVehicle || vehicle.Model.IsEmergencyVehicle) return false;
 
             if (PluginState.TaskedVehicles.ContainsKey(vehicle) || PluginState.IntersectionTaskedVehicles.Contains(vehicle) || PluginState.IntersectionCreepTaskedVehicles.ContainsKey(vehicle) || PluginState.OncomingBrakingVehicles.ContainsKey(vehicle) || PluginState.AroundPlayerTaskedVehicles.ContainsKey(vehicle)) return false;
 

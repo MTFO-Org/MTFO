@@ -140,23 +140,21 @@ namespace MTFO.Handlers
             var unsafeLateralThreshold = emergencyVehicle.Width / 2f + 2.5f;
             if (forwardDistance > -2.0f && forwardDistance < 60f && Math.Abs(lateralDistance) < unsafeLateralThreshold) return false;
 
-            if (emergencyVehicle.Speed > 4f)
-            {
-                var velocity = emergencyVehicle.Velocity;
-                var futureTime = 1.2f;
-                var futurePosition = emergencyVehicle.Position + velocity * futureTime;
-                var futureForwardVec = velocity.LengthSquared() > 1f ? velocity.ToNormalized() : emergencyVehicle.ForwardVector;
-                var futureRightVec = Vector3.Cross(futureForwardVec, Vector3.WorldUp);
+            if (!(emergencyVehicle.Speed > 4f)) return true;
+            var velocity = emergencyVehicle.Velocity;
+            const float futureTime = 1.2f;
+            var futurePosition = emergencyVehicle.Position + velocity * futureTime;
+            var futureForwardVec = velocity.LengthSquared() > 1f ? velocity.ToNormalized() : emergencyVehicle.ForwardVector;
+            var futureRightVec = Vector3.Cross(futureForwardVec, Vector3.WorldUp);
 
-                var futureFrontBumperPosition = futurePosition + futureForwardVec * (emergencyVehicle.Length / 2f);
-                var vectorToTargetFuture = position - futureFrontBumperPosition;
+            var futureFrontBumperPosition = futurePosition + futureForwardVec * (emergencyVehicle.Length / 2f);
+            var vectorToTargetFuture = position - futureFrontBumperPosition;
 
-                var forwardDistanceFuture = Vector3.Dot(vectorToTargetFuture, futureForwardVec);
-                var lateralDistanceFuture = Vector3.Dot(vectorToTargetFuture, futureRightVec);
+            var forwardDistanceFuture = Vector3.Dot(vectorToTargetFuture, futureForwardVec);
+            var lateralDistanceFuture = Vector3.Dot(vectorToTargetFuture, futureRightVec);
 
-                var futureUnsafeLateralThreshold = emergencyVehicle.Width / 2f + 3.25f;
-                if (forwardDistanceFuture > -5.0f && forwardDistanceFuture < 70f && Math.Abs(lateralDistanceFuture) < futureUnsafeLateralThreshold) return false;
-            }
+            var futureUnsafeLateralThreshold = emergencyVehicle.Width / 2f + 3.25f;
+            if (forwardDistanceFuture > -5.0f && forwardDistanceFuture < 70f && Math.Abs(lateralDistanceFuture) < futureUnsafeLateralThreshold) return false;
 
             return true;
         }
@@ -167,17 +165,8 @@ namespace MTFO.Handlers
             if (Functions.IsPlayerPerformingPullover()) pulloverSuspect = Functions.GetPulloverSuspect(Functions.GetCurrentPullover());
 
             List<Vehicle> creepersToUntask = null;
-            foreach (var kvp in PluginState.IntersectionCreepTaskedVehicles)
+            foreach (var vehicle in from kvp in PluginState.IntersectionCreepTaskedVehicles let vehicle = kvp.Key let task = kvp.Value let isPulloverTarget = pulloverSuspect != null && pulloverSuspect.Exists() && vehicle.Exists() && pulloverSuspect == vehicle.Driver let shouldUntask = isPulloverTarget || !vehicle.Exists() || vehicle.Position.DistanceTo(emergencyVehicle.Position) > Config.DetectionRange + 30f || vehicle.Position.DistanceTo(task.TargetPosition) < Config.CreepTaskCompletionDistance || vehicle.Position.DistanceTo(task.TargetPosition) > Config.CreepTaskAbandonDistance || Game.GameTime - task.GameTimeStarted > Config.CreepTaskTimeoutMs where shouldUntask select vehicle)
             {
-                var vehicle = kvp.Key;
-                var task = kvp.Value;
-
-                var isPulloverTarget = pulloverSuspect != null && pulloverSuspect.Exists() && vehicle.Exists() && pulloverSuspect == vehicle.Driver;
-
-                var shouldUntask = isPulloverTarget || !vehicle.Exists() || vehicle.Position.DistanceTo(emergencyVehicle.Position) > Config.DetectionRange + 30f || vehicle.Position.DistanceTo(task.TargetPosition) < Config.CreepTaskCompletionDistance || vehicle.Position.DistanceTo(task.TargetPosition) > Config.CreepTaskAbandonDistance || Game.GameTime - task.GameTimeStarted > Config.CreepTaskTimeoutMs;
-
-                if (!shouldUntask) continue;
-
                 if (creepersToUntask == null) creepersToUntask = new List<Vehicle>();
                 creepersToUntask.Add(vehicle);
             }
@@ -211,7 +200,14 @@ namespace MTFO.Handlers
 
             foreach (var vehicle in brakingVehiclesToUntask)
             {
-                if (vehicle.Exists() && vehicle.Driver.Exists()) vehicle.Driver.Tasks.Clear();
+                var isPulloverTarget = pulloverSuspect != null && pulloverSuspect.Exists() && vehicle.Exists() && pulloverSuspect == vehicle.Driver;
+                if (vehicle.Exists() && vehicle.Driver.Exists())
+                {
+                    if (isPulloverTarget)
+                        vehicle.Driver.Tasks.CruiseWithVehicle(vehicle, vehicle.Speed + 10f, VehicleDrivingFlags.Normal); // +10f offset to prevent vehicle from immediate braking
+                    else
+                        vehicle.Driver.Tasks.Clear();
+                }
 
                 PluginState.OncomingBrakingVehicles.Remove(vehicle);
 
@@ -226,13 +222,7 @@ namespace MTFO.Handlers
                 var task = entry.Value;
 
                 var isPulloverTarget = pulloverSuspect != null && pulloverSuspect.Exists() && vehicle.Exists() && pulloverSuspect == vehicle.Driver;
-                if (isPulloverTarget)
-                {
-                    vehiclesToUntask.Add(vehicle);
-                    continue;
-                }
-
-                if (!IsPositionSafeFromPlayer(task.TargetPosition, emergencyVehicle))
+                if (isPulloverTarget || !IsPositionSafeFromPlayer(task.TargetPosition, emergencyVehicle))
                 {
                     vehiclesToUntask.Add(vehicle);
                     continue;
@@ -274,16 +264,22 @@ namespace MTFO.Handlers
                 }
             }
 
-            foreach (var entry in tasksToUpdate)
-                if (PluginState.TaskedVehicles.ContainsKey(entry.Key))
-                    PluginState.TaskedVehicles[entry.Key] = entry.Value;
+            foreach (var entry in tasksToUpdate.Where(entry => PluginState.TaskedVehicles.ContainsKey(entry.Key)))
+                PluginState.TaskedVehicles[entry.Key] = entry.Value;
 
             foreach (var vehicle in vehiclesToUntask)
             {
+                var isPulloverTarget = pulloverSuspect != null && pulloverSuspect.Exists() && vehicle.Exists() && pulloverSuspect == vehicle.Driver;
                 if (vehicle.Exists())
                 {
                     vehicle.IndicatorLightsStatus = VehicleIndicatorLightsStatus.Off;
-                    if (vehicle.Driver.Exists()) vehicle.Driver.Tasks.Clear();
+                    if (vehicle.Driver.Exists())
+                    {
+                        if (isPulloverTarget)
+                            vehicle.Driver.Tasks.CruiseWithVehicle(vehicle, vehicle.Speed + 10f, VehicleDrivingFlags.Normal); // +10f offset to prevent vehicle from immediate braking
+                        else
+                            vehicle.Driver.Tasks.Clear();
+                    }
                 }
 
                 if (PluginState.TaskedVehicleBlips.TryGetValue(vehicle, out var blip))
@@ -382,7 +378,6 @@ namespace MTFO.Handlers
 
                 var vectorFromVehicleToPlayer = emergencyVehicle.Position - vehicle.Position;
                 var playerLateralOffset = Vector3.Dot(vectorFromVehicleToPlayer, vehicle.RightVector);
-
                 Vector3? sidePushDirection = null;
 
                 if (playerLateralOffset < 0)
