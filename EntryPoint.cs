@@ -10,6 +10,7 @@ namespace MTFO
 {
     public class EntryPoint : Plugin
     {
+        private const string Version = "v3.0.1.0";
         private static MtfoSettings Settings { get; set; }
 
         public override void Initialize()
@@ -19,6 +20,7 @@ namespace MTFO
 
         private void LSPDFRFunctions_OnOnDutyStateChanged(bool onduty)
         {
+            ClearAllTrackedVehicles();
             if (!onduty) return;
             Settings = ConfigLoader.LoadSettings<MtfoSettings>("plugins/LSPDFR/MTFO.ini");
             Main();
@@ -37,7 +39,7 @@ namespace MTFO
             PluginState.PluginFiber = new GameFiber(PluginLogic);
             PluginState.PluginFiber.Start();
             if (MtfoSettings.ShowDebugLines) Game.FrameRender += DebugDisplay.OnFrameRender;
-            Game.DisplayNotification("~g~MTFO ~w~by ~y~Guess1m/Rohan ~w~loaded successfully.");
+            Game.DisplayNotification("web_lossantospolicedept", "web_lossantospolicedept", "~w~MTFO", "~w~By: ~y~Guess1m~w~/~y~Rohan", "~w~Version: ~y~" + Version + " ~g~Loaded Successfully!");
         }
 
         private static void PluginLogic()
