@@ -104,7 +104,7 @@ namespace MTFO
         public static float ForceSideMoveDistance { get; set; } = 6.0f;
 
         [ConfigOption("YieldParams", "DriveSpeed", "The speed at which yielding vehicles drive to their target position.")]
-        public static float DriveSpeed { get; set; } = 12f;
+        public static float DriveSpeed { get; set; } = 15f;
 
         #endregion
 

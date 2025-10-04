@@ -339,7 +339,18 @@ namespace MTFO.Handlers
                 else if (MtfoSettings.EnableSameSideYield && headingDot > 0.2f)
                 {
                     if (!TryFindValidYieldPosition(vehicle, emergencyVehicle, lateralOffset, out var finalTargetPos, out var taskType)) continue;
-                    driver.Tasks.DriveToPosition(finalTargetPos, MtfoSettings.DriveSpeed, VehicleDrivingFlags.Normal);
+
+                    if (vehicle.Speed < 15f)
+                    {
+                        if (MtfoSettings.ShowDebugLines) Game.DisplaySubtitle($"~r~Vehicle speed: {vehicle.Speed}mph, Stopping", 1000);
+                        driver.Tasks.DriveToPosition(finalTargetPos, MtfoSettings.DriveSpeed, VehicleDrivingFlags.Normal | VehicleDrivingFlags.StopAtDestination);
+                    }
+                    else
+                    {
+                        if (MtfoSettings.ShowDebugLines) Game.DisplaySubtitle($"~g~Vehicle speed: {vehicle.Speed}mph, Shifting Lanes", 1000);
+                        driver.Tasks.DriveToPosition(finalTargetPos, MtfoSettings.DriveSpeed, VehicleDrivingFlags.Normal);
+                    }
+
                     PluginState.TaskedVehicles.Add(vehicle, new YieldTask { TargetPosition = finalTargetPos, TaskType = taskType, GameTimeStarted = Game.GameTime });
 
                     if (!MtfoSettings.ShowDebugLines || PluginState.TaskedVehicleBlips.ContainsKey(vehicle)) continue;
