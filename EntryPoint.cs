@@ -10,7 +10,8 @@ namespace MTFO
 {
     public class EntryPoint : Plugin
     {
-        private const string Version = "v3.0.1.0";
+        private static readonly string Version = "v" + System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
+
         private static MtfoSettings Settings { get; set; }
 
         public override void Initialize()
