@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using INIUtility;
 using LSPD_First_Response.Mod.API;
 using MTFO.Handlers;
@@ -10,7 +11,8 @@ namespace MTFO
 {
     public class EntryPoint : Plugin
     {
-        private const string Version = "v3.0.1.0";
+        private static readonly string Version = "v" + Assembly.GetExecutingAssembly().GetName().Version;
+
         private static MtfoSettings Settings { get; set; }
 
         public override void Initialize()
